@@ -17,35 +17,6 @@ async function callTelegram(botToken: string, method: string, body: object): Pro
   return res.json();
 }
 
-/** Returns true if userId is a member/admin/creator of channelId */
-async function isMember(botToken: string, channelId: string, userId: number): Promise<boolean> {
-  try {
-    const data = await callTelegram(botToken, "getChatMember", {
-      chat_id: channelId,
-      user_id: userId,
-    });
-    if (!data.ok) return false;
-    return ["member", "administrator", "creator"].includes(data.result?.status);
-  } catch {
-    return false;
-  }
-}
-
-/** Send the community join prompt with two inline buttons */
-async function sendJoinPrompt(botToken: string, chatId: string, channelLink: string): Promise<void> {
-  await callTelegram(botToken, "sendMessage", {
-    chat_id: chatId,
-    text: "👥 *THAM GIA CỘNG ĐỒNG*\n\nBạn cần duy trì tư cách thành viên của cộng đồng để sử dụng shop. Hãy tham gia, sau đó bấm *Xác minh thành viên*.",
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [[
-        { text: "👥 Tham gia cộng đồng", url: channelLink },
-        { text: "✅ Xác minh thành viên", callback_data: "verify_membership" },
-      ]],
-    },
-  });
-}
-
 // ── Main webhook handler ──────────────────────────────────────────────────────
 
 // Called by Telegram servers when the main bot receives a message or callback
@@ -57,50 +28,6 @@ router.post("/webhook/telegram", async (req, res): Promise<void> => {
   const config = await getConfig().catch(() => null);
   if (!config?.mainBotToken) return;
 
-  const botToken = config.mainBotToken;
-
-  // ── Handle callback_query (button taps) ──────────────────────────────────
-  const cq = update?.callback_query;
-  if (cq?.data === "verify_membership") {
-    const cqChatId = String(cq.message?.chat?.id ?? cq.from?.id);
-    const cqUserId: number = cq.from?.id;
-
-    // Acknowledge button tap (clears loading spinner)
-    await callTelegram(botToken, "answerCallbackQuery", { callback_query_id: cq.id }).catch(() => {});
-
-    const channelId = config.communityChannelId;
-    const channelLink = config.communityChannelLink;
-
-    if (!channelId) {
-      // Community check not configured — just confirm
-      await callTelegram(botToken, "sendMessage", {
-        chat_id: cqChatId,
-        text: "✅ Xác minh thành công! Bạn có thể đặt hàng.",
-      }).catch(() => {});
-      return;
-    }
-
-    const ok = await isMember(botToken, channelId, cqUserId);
-    if (ok) {
-      await callTelegram(botToken, "sendMessage", {
-        chat_id: cqChatId,
-        text: "✅ Xác minh thành công! Bạn có thể đặt hàng.",
-      }).catch(() => {});
-    } else {
-      await callTelegram(botToken, "sendMessage", {
-        chat_id: cqChatId,
-        text: "❌ Bạn chưa tham gia cộng đồng. Vui lòng tham gia rồi bấm xác minh lại.",
-        reply_markup: channelLink ? {
-          inline_keyboard: [[
-            { text: "👥 Tham gia cộng đồng", url: channelLink },
-            { text: "✅ Xác minh thành viên", callback_data: "verify_membership" },
-          ]],
-        } : undefined,
-      }).catch(() => {});
-    }
-    return;
-  }
-
   // ── Handle messages ───────────────────────────────────────────────────────
   const message = update?.message;
   if (!message || !message.text) return;
@@ -109,24 +36,11 @@ router.post("/webhook/telegram", async (req, res): Promise<void> => {
   const userId: number = message.from?.id;
   const chatId: string = String(message.chat?.id ?? userId);
 
-  // ── /start → community gate (if configured) or welcome ───────────────────
+  // /start — not an order
   const isStart = text.trim() === "/start" || text.trim().startsWith("/start ");
-  const channelId = config.communityChannelId;
-  const channelLink = config.communityChannelLink;
+  if (isStart) return;
 
-  if (isStart || channelId) {
-    if (channelId) {
-      const memberOk = await isMember(botToken, channelId, userId);
-      if (!memberOk) {
-        await sendJoinPrompt(botToken, chatId, channelLink ?? `https://t.me/${channelId.replace(/^@/, "")}`);
-        return;
-      }
-    }
-    // If /start but user IS a member (or no gate configured) — fall through to order logic
-    if (isStart) return; // /start alone doesn't create an order
-  }
-
-  // ── Existing order keyword logic (unchanged) ──────────────────────────────
+  // ── Order keyword logic ───────────────────────────────────────────────────
   const keyword = (config.orderKeyword ?? "mua").toLowerCase();
   if (!text.toLowerCase().includes(keyword)) return;
 
@@ -191,7 +105,7 @@ router.post("/webhook/setup", async (req, res): Promise<void> => {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl, allowed_updates: ["message", "callback_query"] }),
+      body: JSON.stringify({ url: webhookUrl, allowed_updates: ["message"] }),
     },
   );
 

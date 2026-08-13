@@ -104,9 +104,10 @@ export function startPoller(opts: PollerOptions = {}): PollerHandle {
   let syncTimer: NodeJS.Timeout | null = null;
   if (runSync) {
     syncTimer = setInterval(() => {
-      syncProductVisibility(client).catch((err) => logger.error({ err }, "Stock sync failed"));
-      syncPrices(client).catch((err) => logger.error({ err }, "Price sync failed"));
-      syncStock(client).catch((err) => logger.error({ err }, "Stock balance sync failed"));
+      const c = getClient();
+      syncProductVisibility(c).catch((err) => logger.error({ err }, "Stock sync failed"));
+      syncPrices(c).catch((err) => logger.error({ err }, "Price sync failed"));
+      syncStock(c).catch((err) => logger.error({ err }, "Stock balance sync failed"));
     }, SYNC_INTERVAL_MS);
   }
 

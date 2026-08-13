@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   CheckCircle2, XCircle, Save, Settings2, KeyRound, Eye, EyeOff,
-  Wifi, WifiOff, Clock, Bell, Send, Loader2, FlaskConical, Wrench, Trash2, TriangleAlert, Users
+  Wifi, WifiOff, Clock, Bell, Send, Loader2, FlaskConical, Wrench, Trash2, TriangleAlert
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -43,10 +43,6 @@ export default function Config() {
   const [showCanbosoPassword, setShowCanbosoPassword] = useState(false);
   const [testingCanboso, setTestingCanboso] = useState(false);
   const [savingCanboso, setSavingCanboso] = useState(false);
-  const [communityChannelId, setCommunityChannelId] = useState("");
-  const [communityChannelLink, setCommunityChannelLink] = useState("");
-  const [savingCommunity, setSavingCommunity] = useState(false);
-
   const initialized = useRef(false);
   useEffect(() => {
     if (config && !initialized.current) {
@@ -85,33 +81,6 @@ export default function Config() {
       toast({ title: "Lỗi kết nối", variant: "destructive" });
     } finally {
       setTestingCanboso(false);
-    }
-  };
-
-  const handleSaveCommunity = async () => {
-    if (!communityChannelId.trim() && !communityChannelLink.trim()) return;
-    setSavingCommunity(true);
-    try {
-      const updates: Record<string, string | null> = {};
-      if (communityChannelId.trim()) updates.communityChannelId = communityChannelId.trim();
-      else updates.communityChannelId = null;
-      if (communityChannelLink.trim()) updates.communityChannelLink = communityChannelLink.trim();
-      else updates.communityChannelLink = null;
-      const res = await fetch(`${BASE}/api/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error();
-      const updated = await res.json();
-      queryClient.setQueryData(getGetConfigQueryKey(), updated);
-      setCommunityChannelId("");
-      setCommunityChannelLink("");
-      toast({ title: "✅ Đã lưu cấu hình cộng đồng" });
-    } catch {
-      toast({ title: "Lỗi khi lưu", variant: "destructive" });
-    } finally {
-      setSavingCommunity(false);
     }
   };
 
