@@ -19,6 +19,13 @@ import {
   useLocation,
   Router as WouterRouter,
 } from 'wouter';
+import { setBaseUrl } from '@workspace/api-client-react';
+
+// Prefix all generated-hook API calls with the app's base path so they work
+// both at root (Replit dev: BASE_URL = '/') and under a sub-path
+// (VPS nginx: BASE_URL = '/autoorder/').
+const appBase = import.meta.env.BASE_URL.replace(/\/$/, ''); // '' or '/autoorder'
+setBaseUrl(appBase || null); // null keeps the default /api/... paths for dev
 
 const queryClient = new QueryClient({
   defaultOptions: {
