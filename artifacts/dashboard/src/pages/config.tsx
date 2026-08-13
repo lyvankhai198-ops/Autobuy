@@ -338,65 +338,6 @@ export default function Config() {
         </CardContent>
       </Card>
 
-      {/* Community verification */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Xác Minh Cộng Đồng</CardTitle>
-          </div>
-          <CardDescription>
-            Khi khách nhắn <code className="font-mono bg-muted px-1 rounded text-[11px]">/start</code>, bot kiểm tra xem họ đã tham gia cộng đồng chưa. Nếu chưa sẽ hiện nút tham gia + xác minh.
-            {config?.communityChannelId && (
-              <span className="block mt-1 text-foreground font-medium">
-                Channel hiện tại: <code className="font-mono">{config.communityChannelId}</code>
-              </span>
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Channel / Group ID</label>
-              <Input
-                value={communityChannelId}
-                onChange={(e) => setCommunityChannelId(e.target.value)}
-                placeholder={config?.communityChannelId ?? "@tenchannel hoặc -1001234567890"}
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">Dùng <code className="font-mono bg-muted px-0.5 rounded">@username</code> nếu public, hoặc ID số âm nếu private.</p>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Link tham gia</label>
-              <Input
-                value={communityChannelLink}
-                onChange={(e) => setCommunityChannelLink(e.target.value)}
-                placeholder={config?.communityChannelLink ?? "https://t.me/tenchannel"}
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">Hiển thị trên nút "Tham gia cộng đồng".</p>
-            </div>
-          </div>
-          {!config?.communityChannelId && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/60 border text-muted-foreground text-xs">
-              <Users className="h-3.5 w-3.5 shrink-0" />
-              Chưa cấu hình — bot xử lý đơn bình thường, không kiểm tra cộng đồng.
-            </div>
-          )}
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              className="gap-2"
-              onClick={handleSaveCommunity}
-              disabled={savingCommunity || (!communityChannelId.trim() && !communityChannelLink.trim())}
-            >
-              {savingCommunity ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              {savingCommunity ? "Đang lưu..." : "Lưu"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Auto-fulfill */}
       <Card className="shadow-sm">
         <CardHeader className="pb-4">
