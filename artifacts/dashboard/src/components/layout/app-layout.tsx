@@ -55,13 +55,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {/* ════════════════ MOBILE ════════════════ */}
 
       {/* Top header — mobile only */}
-      <header className="md:hidden fixed top-0 inset-x-0 z-40 h-13 bg-[#0D1117] flex items-center justify-between px-4 border-b border-white/[0.06]">
+      <header className="md:hidden fixed top-0 inset-x-0 z-40 h-[60px] bg-[#0D1117] flex items-center justify-between px-4 border-b border-white/[0.06]">
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="h-6.5 w-6.5 rounded-lg bg-[#5B5BF7] flex items-center justify-center shadow-lg shadow-[#5B5BF7]/30">
-            <Zap className="h-3.5 w-3.5 text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className="h-[44px] w-[44px] rounded-xl bg-[#5B5BF7] flex items-center justify-center shadow-lg shadow-[#5B5BF7]/30">
+            <Zap className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-[19px] tracking-tight text-white">
+          <span className="font-bold text-[24px] tracking-tight text-white">
             Auto<span className="text-[#8080ff]">Order</span>
           </span>
         </div>
@@ -201,7 +201,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {/* ════════════════ CONTENT ════════════════ */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile: space for fixed header + bottom nav */}
-        <div className="flex-1 overflow-auto pt-13 pb-16 md:pt-0 md:pb-0 px-4 md:px-7 py-4 md:py-7">
+        <div className="flex-1 overflow-auto pt-[60px] pb-16 md:pt-0 md:pb-0 px-4 md:px-7 py-3 md:py-7">
           <div className="mx-auto max-w-5xl">
             {children}
           </div>

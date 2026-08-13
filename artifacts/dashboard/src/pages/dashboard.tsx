@@ -116,13 +116,13 @@ export default function Dashboard() {
     : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap pt-1">
         <div>
-          <h1 className="text-[18px] font-bold tracking-tight leading-tight">Tổng quan</h1>
-          <p className="text-muted-foreground text-[13px] mt-0.5">Theo dõi hoạt động hệ thống và đơn hàng.</p>
+          <h1 className="text-[29px] font-bold tracking-tight leading-tight">Tổng quan</h1>
+          <p className="text-muted-foreground text-[15px] mt-0.5">Theo dõi hoạt động hệ thống và đơn hàng.</p>
         </div>
         <div className="flex items-center gap-2.5">
           <div className="text-right hidden sm:block">
