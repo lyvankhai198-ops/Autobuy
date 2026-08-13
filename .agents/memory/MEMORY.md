@@ -1,0 +1,3 @@
+- [Autobuy architecture](autobuy-architecture.md) — AutoOrder Dashboard: Telegram orders → Canboso → delivery; multi-account, sentinel stock, key gotchas
+- [Canboso poller architecture](canboso-poller.md) — API endpoints, auth flow, why delivery goes via Telegram chatId (no general complete-order API exists)
+- [Multi-account Canboso poller](multi-account-poller.md) — CanbosoClient class per account, cross-account sentinel detection via code fallback, CANBOSO2_* env vars

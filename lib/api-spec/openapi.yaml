@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AutoOrder middleware API for Telegram bot order automation
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: orders
+    description: Order management
+  - name: stats
+    description: Dashboard statistics
+  - name: config
+    description: System configuration
+  - name: webhook
+    description: Telegram webhook handling
 paths:
   /healthz:
     get:
@@ -24,6 +32,199 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List all orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, fulfilled, failed]
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: number
+            default: 0
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /orders/stats:
+    get:
+      operationId: getOrderStats
+      tags: [stats]
+      summary: Get order statistics
+      responses:
+        "200":
+          description: Order statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderStats"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get a single order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+
+  /orders/{id}/fulfill:
+    post:
+      operationId: fulfillOrder
+      tags: [orders]
+      summary: Manually fulfill an order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FulfillInput"
+      responses:
+        "200":
+          description: Order fulfilled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+
+  /orders/{id}/retry:
+    post:
+      operationId: retryOrder
+      tags: [orders]
+      summary: Retry a failed order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Order retried
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+
+  /orders/recent:
+    get:
+      operationId: listRecentActivity
+      tags: [orders]
+      summary: Get recent order activity feed
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 10
+      responses:
+        "200":
+          description: Recent order activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /config:
+    get:
+      operationId: getConfig
+      tags: [config]
+      summary: Get system configuration (without secrets)
+      responses:
+        "200":
+          description: Current config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+    put:
+      operationId: updateConfig
+      tags: [config]
+      summary: Update system configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigInput"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+
+  /webhook/setup:
+    post:
+      operationId: setupWebhook
+      tags: [webhook]
+      summary: Register webhook URL on Telegram main bot
+      responses:
+        "200":
+          description: Webhook setup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSetupResult"
+
+  /webhook/telegram:
+    post:
+      operationId: telegramWebhook
+      tags: [webhook]
+      summary: Receive Telegram bot updates (called by Telegram)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramUpdate"
+      responses:
+        "200":
+          description: OK
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +235,127 @@ components:
       required:
         - status
 
+    Order:
+      type: object
+      required: [id, customerId, customerUsername, productType, status, rawMessage, createdAt]
+      properties:
+        id:
+          type: number
+        customerId:
+          type: string
+        customerUsername:
+          type: ["string", "null"]
+        productType:
+          type: string
+        productDetails:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, processing, fulfilled, failed]
+        rawMessage:
+          type: string
+        errorMessage:
+          type: ["string", "null"]
+        sourceApiResponse:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        fulfilledAt:
+          type: ["string", "null"]
+
+    OrderStats:
+      type: object
+      required: [total, pending, processing, fulfilled, failed, todayCount, todayFulfilled]
+      properties:
+        total:
+          type: number
+        pending:
+          type: number
+        processing:
+          type: number
+        fulfilled:
+          type: number
+        failed:
+          type: number
+        todayCount:
+          type: number
+        todayFulfilled:
+          type: number
+
+    FulfillInput:
+      type: object
+      required: [productDetails]
+      properties:
+        productDetails:
+          type: string
+
+    Config:
+      type: object
+      required: [mainBotTokenSet, sourceBotApiUrlSet, sourceBotApiKeySet, webhookUrl, autoFulfill]
+      properties:
+        mainBotTokenSet:
+          type: boolean
+        sourceBotApiUrlSet:
+          type: boolean
+        sourceBotApiKeySet:
+          type: boolean
+        webhookUrl:
+          type: ["string", "null"]
+        autoFulfill:
+          type: boolean
+        orderKeyword:
+          type: ["string", "null"]
+        sentinelValue:
+          type: string
+          description: Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment
+        adminChatId:
+          type: ["string", "null"]
+          description: Telegram chat ID of the admin to notify on errors requiring manual intervention
+        lowBalanceThreshold:
+          type: ["number", "null"]
+          description: Balance threshold (VND) below which a low-balance warning is sent to admin
+
+    ConfigInput:
+      type: object
+      properties:
+        mainBotToken:
+          type: ["string", "null"]
+        sourceBotApiUrl:
+          type: ["string", "null"]
+        sourceBotApiKey:
+          type: ["string", "null"]
+        autoFulfill:
+          type: boolean
+        orderKeyword:
+          type: ["string", "null"]
+        sentinelValue:
+          type: ["string", "null"]
+          description: Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment
+        adminChatId:
+          type: ["string", "null"]
+          description: Telegram chat ID of the admin to notify on errors requiring manual intervention
+        lowBalanceThreshold:
+          type: ["number", "null"]
+          description: Balance threshold (VND) below which a low-balance warning is sent to admin
+
+    WebhookSetupResult:
+      type: object
+      required: [ok, description]
+      properties:
+        ok:
+          type: boolean
+        description:
+          type: string
+
+    TelegramUpdate:
+      type: object
+      required: [update_id]
+      properties:
+        update_id:
+          type: number
+        message:
+          type: object
+          additionalProperties: true
+        callback_query:
+          type: object
+          additionalProperties: true

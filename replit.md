@@ -1,10 +1,11 @@
-# [Project name]
+# AutoOrder Dashboard
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Middleware automation dashboard that intercepts Telegram orders from a main sales bot, automatically calls a supplier bot API (Canboso) to fulfill them, and delivers the product to the customer — all without manual intervention.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/dashboard run dev` — run the frontend dashboard (port 23183)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -19,26 +20,53 @@ _Replace the heading above with the project's name, and this line with one sente
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
+- Frontend: React + Vite + Tailwind CSS + TanStack Query
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — API contract source of truth
+- `lib/db/src/schema/orders.ts` — orders table schema
+- `lib/db/src/schema/config.ts` — single-row system config table (always id=1)
+- `lib/db/src/schema/mappings.ts` — Canboso ↔ source product mappings
+- `lib/db/src/schema/market-watches.ts` — market automation rules
+- `artifacts/api-server/src/routes/orders.ts` — order CRUD + fulfill/retry routes
+- `artifacts/api-server/src/routes/webhook.ts` — Telegram webhook receiver + webhook setup
+- `artifacts/api-server/src/routes/config.ts` — config read/write routes
+- `artifacts/api-server/src/lib/canboso.ts` — Canboso API client (per-account class)
+- `artifacts/api-server/src/lib/poller.ts` — 5s order polling loop (multi-account)
+- `artifacts/api-server/src/lib/fulfillment.ts` — Telegram delivery with bot fallback
+- `artifacts/api-server/src/lib/market-poller.ts` — 5-min market automation poller
+- `artifacts/dashboard/src/` — React frontend
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Single-row config table**: `config` table always uses `id=1`, upserted on first access. Secrets (bot tokens, API keys) stored in DB — never exposed via API, only boolean "is set" flags returned.
+- **Webhook → background processing**: Telegram webhook responds with 200 immediately, then processes orders in a fire-and-forget background function. Prevents Telegram retries.
+- **Sentinel stock system**: Canboso "delivers" a sentinel code (e.g. "100") as placeholder — poller detects this and buys real stock from source API, then delivers to customer via Telegram.
+- **Multi-account support**: Account-1 (main) runs order poll + stock sync; Account-2+ runs order poll only with its own bot token. Each uses a `CanbosoClient` instance.
+- **`zod.int()` not available in Zod v3**: Use `type: number` (not `type: integer`) in OpenAPI spec to avoid Orval generating `z.int()` which only exists in Zod v4.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Dashboard: stats (total/pending/processing/fulfilled/failed, today's count), recent activity feed
+- Orders: filterable list, per-order detail with fulfill/retry actions
+- Mappings: link Canboso products to source API products with markup rules
+- Market: auto-pull cheapest market source per product category
+- Config: toggle auto-fulfill, set order keyword, register Telegram webhook, check API key status
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Vietnamese-speaking user (reseller business)
+- Main bot: Telegram (user has Bot Token)
+- Source supplier: Canboso.com
+- Delivery method: Auto Telegram message to customer
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- After any `lib/db/src/schema/` change, run `pnpm run typecheck:libs` before running `pnpm --filter @workspace/api-server run typecheck`.
+- The config cache in `src/lib/config.ts` is in-memory — invalidated only when `saveConfig` is called. If you update the DB directly, restart the server.
+- Telegram webhook URL must be HTTPS — only works on a deployed/public URL, not localhost.
+- Never use `type: integer` in OpenAPI spec — always use `type: number` to avoid Zod v3 compatibility errors.
 
 ## Pointers
 

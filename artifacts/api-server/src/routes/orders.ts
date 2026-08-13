@@ -1,0 +1,287 @@
+import { Router, type IRouter } from "express";
+import { eq, desc, sql, and } from "drizzle-orm";
+import { db, ordersTable, productMappingsTable, marketWatchesTable } from "@workspace/db";
+import {
+  ListOrdersQueryParams,
+  GetOrderParams,
+  FulfillOrderParams,
+  FulfillOrderBody,
+  RetryOrderParams,
+  ListRecentActivityQueryParams,
+} from "@workspace/api-zod";
+import { triggerAutoFulfill } from "../lib/fulfillment";
+import { fetchProducts, matchProduct, buyProduct, formatDeliveryMessage, formatProductListMessage } from "../lib/products";
+import { logger } from "../lib/logger";
+
+const router: IRouter = Router();
+
+router.get("/orders", async (req, res): Promise<void> => {
+  const parsed = ListOrdersQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { status, limit = 50, offset = 0 } = parsed.data;
+  const conditions = status ? [eq(ordersTable.status, status)] : [];
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  res.json(orders);
+});
+
+router.get("/orders/stats", async (req, res): Promise<void> => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [stats] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      pending: sql<number>`count(*) filter (where status = 'pending')::int`,
+      processing: sql<number>`count(*) filter (where status = 'processing')::int`,
+      fulfilled: sql<number>`count(*) filter (where status = 'fulfilled')::int`,
+      failed: sql<number>`count(*) filter (where status = 'failed')::int`,
+      todayCount: sql<number>`count(*) filter (where created_at >= ${today.toISOString()})::int`,
+      todayFulfilled: sql<number>`count(*) filter (where status = 'fulfilled' and created_at >= ${today.toISOString()})::int`,
+    })
+    .from(ordersTable);
+
+  res.json(stats);
+});
+
+router.get("/orders/recent", async (req, res): Promise<void> => {
+  const parsed = ListRecentActivityQueryParams.safeParse(req.query);
+  const limit = parsed.success ? (parsed.data.limit ?? 10) : 10;
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(limit);
+
+  res.json(orders);
+});
+
+router.get("/orders/:id", async (req, res): Promise<void> => {
+  const params = GetOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, params.data.id));
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  res.json(order);
+});
+
+router.post("/orders/:id/fulfill", async (req, res): Promise<void> => {
+  const params = FulfillOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const body = FulfillOrderBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, params.data.id));
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set({
+      status: "fulfilled",
+      productDetails: body.data.productDetails,
+      fulfilledAt: new Date(),
+      errorMessage: null,
+    })
+    .where(eq(ordersTable.id, params.data.id))
+    .returning();
+
+  // Send product to customer via Telegram
+  try {
+    await triggerAutoFulfill(order.customerId, body.data.productDetails);
+  } catch (err) {
+    req.log.warn({ err, orderId: order.id }, "Could not send Telegram message for manual fulfillment");
+  }
+
+  res.json(updated);
+});
+
+router.post("/orders/:id/retry", async (req, res): Promise<void> => {
+  const params = RetryOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, params.data.id));
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set({ status: "processing", errorMessage: null })
+    .where(eq(ordersTable.id, params.data.id))
+    .returning();
+
+  processOrderInBackground(updated.id, order.customerId, order.rawMessage, req.log).catch(() => {});
+
+  res.json(updated);
+});
+
+/**
+ * Core fulfillment logic:
+ * 1. Fetch product list from supplier API
+ * 2. Match product from customer message
+ * 3. Call POST /api/buy on supplier
+ * 4. Deliver account details to customer via Telegram
+ */
+// DELETE all operational data — Vùng Nguy Hiểm: orders + mappings + market watches
+router.delete("/data/all", async (req, res): Promise<void> => {
+  await Promise.all([
+    db.delete(ordersTable),
+    db.delete(productMappingsTable),
+    db.delete(marketWatchesTable),
+  ]);
+  res.json({ ok: true });
+});
+
+export async function processOrderInBackground(
+  orderId: number,
+  customerId: string,
+  rawMessage: string,
+  log: any,
+): Promise<void> {
+  try {
+    const { getConfig } = await import("../lib/config");
+    const config = await getConfig();
+
+    // Validate config
+    if (!config.mainBotToken) {
+      await db.update(ordersTable)
+        .set({ status: "failed", errorMessage: "Bot Token chưa được cấu hình" })
+        .where(eq(ordersTable.id, orderId));
+      return;
+    }
+
+    if (!config.sourceBotApiUrl || !config.sourceBotApiKey) {
+      await db.update(ordersTable)
+        .set({ status: "failed", errorMessage: "API nguồn hàng chưa được cấu hình" })
+        .where(eq(ordersTable.id, orderId));
+      return;
+    }
+
+    const baseUrl = config.sourceBotApiUrl.replace(/\/+$/, "");
+    const apiKey = config.sourceBotApiKey;
+
+    // Fetch product list
+    const products = await fetchProducts(baseUrl, apiKey);
+
+    if (products.length === 0) {
+      await db.update(ordersTable)
+        .set({ status: "failed", errorMessage: "Không lấy được danh sách sản phẩm từ API nguồn hàng" })
+        .where(eq(ordersTable.id, orderId));
+      return;
+    }
+
+    // Match product from message
+    const matched = matchProduct(products, rawMessage);
+
+    if (!matched) {
+      // No product matched — send product list to customer and mark as failed
+      log.info({ orderId, rawMessage }, "No product matched, sending product list to customer");
+
+      const listMsg = formatProductListMessage(products);
+      await triggerAutoFulfill(customerId, listMsg).catch(() => {});
+
+      await db.update(ordersTable)
+        .set({
+          status: "failed",
+          errorMessage: `Không nhận dạng được sản phẩm từ tin nhắn: "${rawMessage}". Đã gửi danh sách sản phẩm cho khách.`,
+        })
+        .where(eq(ordersTable.id, orderId));
+      return;
+    }
+
+    log.info({ orderId, productId: matched.id, productName: matched.name }, "Product matched, calling supplier API");
+
+    // Update product type in DB
+    await db.update(ordersTable)
+      .set({ productType: matched.name })
+      .where(eq(ordersTable.id, orderId));
+
+    // Check stock
+    if (matched.stock <= 0) {
+      const outMsg = `❌ Sản phẩm <b>${matched.name}</b> hiện đã hết hàng.\n\n${formatProductListMessage(products)}`;
+      await triggerAutoFulfill(customerId, outMsg).catch(() => {});
+
+      await db.update(ordersTable)
+        .set({ status: "failed", errorMessage: `Hết hàng: ${matched.name}` })
+        .where(eq(ordersTable.id, orderId));
+      return;
+    }
+
+    // Call supplier API
+    const orderResult = await buyProduct(baseUrl, apiKey, matched.id, 1);
+
+    // Format delivery message
+    const deliveryMsg = formatDeliveryMessage(orderResult.product_name, orderResult.accounts);
+    const productDetails = orderResult.accounts.join("\n");
+
+    // Save fulfilled order
+    await db.update(ordersTable)
+      .set({
+        status: "fulfilled",
+        productType: orderResult.product_name,
+        productDetails,
+        sourceApiResponse: JSON.stringify(orderResult),
+        fulfilledAt: new Date(),
+        errorMessage: null,
+      })
+      .where(eq(ordersTable.id, orderId));
+
+    // Deliver to customer
+    await triggerAutoFulfill(customerId, deliveryMsg);
+
+    log.info({ orderId, orderCode: orderResult.order_code }, "Order fulfilled and delivered to customer");
+  } catch (err: any) {
+    log.error({ err, orderId }, "Background order processing failed");
+    await db.update(ordersTable)
+      .set({ status: "failed", errorMessage: err?.message ?? "Lỗi không xác định" })
+      .where(eq(ordersTable.id, orderId))
+      .catch(() => {});
+  }
+}
+
+export default router;

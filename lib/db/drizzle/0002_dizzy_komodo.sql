@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "second_bot_token" text;
