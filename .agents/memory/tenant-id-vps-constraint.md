@@ -25,7 +25,7 @@ The code never sets `tenant_id` on inserts. If the column has `NOT NULL` with no
 null value in column "tenant_id" of relation "orders" violates not-null constraint
 ```
 
-This silently kills account-2 (bot phụ) order processing — orders are detected but never fulfilled or delivered.
+This silently kills **both** account-1 (bot chính) and account-2 (bot phụ) order processing — orders are detected but never fulfilled or delivered.
 
 ## Current state (fixed)
 
