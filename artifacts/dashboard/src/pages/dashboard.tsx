@@ -121,7 +121,7 @@ export default function Dashboard() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-[26px] font-bold tracking-tight leading-tight">Tổng quan</h1>
+          <h1 className="text-[18px] font-bold tracking-tight leading-tight">Tổng quan</h1>
           <p className="text-muted-foreground text-[13px] mt-0.5">Theo dõi hoạt động hệ thống và đơn hàng.</p>
         </div>
         <div className="flex items-center gap-2.5">
