@@ -74,6 +74,25 @@ export async function runMarketSyncNow(): Promise<{ ok: boolean; processed: numb
   return result;
 }
 
+/** Trigger an immediate sync for a single watch by ID. */
+export async function runMarketSyncForWatch(watchId: number): Promise<{ ok: boolean; message: string }> {
+  const [watch] = await db.select().from(marketWatchesTable)
+    .where(eq(marketWatchesTable.id, watchId)).limit(1);
+  if (!watch) return { ok: false, message: "Không tìm thấy quy tắc" };
+  if (watch.status !== "active") return { ok: false, message: "Quy tắc đang tạm dừng" };
+
+  const config = await getConfig().catch(() => null);
+  try {
+    await processWatch(watch, config);
+    return { ok: true, message: "Đã quét xong" };
+  } catch (err: any) {
+    await db.update(marketWatchesTable)
+      .set({ lastError: err?.message ?? "Lỗi không xác định", lastCheckedAt: new Date() })
+      .where(eq(marketWatchesTable.id, watchId));
+    return { ok: false, message: err?.message ?? "Lỗi không xác định" };
+  }
+}
+
 async function runMarketSync(): Promise<{ ok: boolean; processed: number; message: string }> {
   if (isMarketSyncRunning) return { ok: false, processed: 0, message: "Đang chạy" };
   isMarketSyncRunning = true;

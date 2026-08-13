@@ -648,6 +648,13 @@ export default function Market() {
                 queryClient.invalidateQueries({ queryKey: ["market-watches"] });
                 toast({ title: "✅ Đã lưu thay đổi" });
               }}
+              onScan={async () => {
+                const result = await apiFetch<{ ok: boolean; message: string }>(
+                  `/api/market-watches/${w.id}/scan`, { method: "POST" }
+                );
+                queryClient.invalidateQueries({ queryKey: ["market-watches"] });
+                toast({ title: result.ok ? "✅ " + result.message : "⚠️ " + result.message });
+              }}
               deleting={deleteMutation.isPending}
               toggling={toggleMutation.isPending}
             />
@@ -680,12 +687,13 @@ export default function Market() {
 }
 
 function WatchCard({
-  watch, onDelete, onToggle, onUpdate, deleting, toggling
+  watch, onDelete, onToggle, onUpdate, onScan, deleting, toggling
 }: {
   watch: MarketWatch;
   onDelete: () => void;
   onToggle: () => void;
   onUpdate: (data: object) => Promise<void>;
+  onScan: () => Promise<void>;
   deleting: boolean;
   toggling: boolean;
 }) {
@@ -694,6 +702,7 @@ function WatchCard({
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [eLabel, setELabel] = useState(watch.label);
   const [eEmoji, setEEmoji] = useState(watch.emoji ?? "");
   const [eKeywords, setEKeywords] = useState(watch.keywords ?? "");
@@ -765,6 +774,18 @@ function WatchCard({
             <div className="flex items-center gap-1.5 shrink-0">
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={openEdit} title="Chỉnh sửa">
                 <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost" size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                title="Quét ngay"
+                disabled={scanning || !isActive}
+                onClick={async () => {
+                  setScanning(true);
+                  try { await onScan(); } finally { setScanning(false); }
+                }}
+              >
+                {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
               </Button>
               <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={onToggle} disabled={toggling}>
                 {toggling ? <Loader2 className="h-3 w-3 animate-spin" /> : isActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}

@@ -12,7 +12,7 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { db, marketWatchesTable, insertMarketWatchSchema } from "@workspace/db";
-import { runMarketSyncNow } from "../lib/market-poller";
+import { runMarketSyncNow, runMarketSyncForWatch } from "../lib/market-poller";
 import { getMarketProducts, getSellerProducts, deleteSellerProduct, computeListingPrice } from "../lib/market-canboso";
 
 const router = Router();
@@ -229,6 +229,17 @@ router.post("/market-watches/scan-now", async (_req, res) => {
   try {
     const result = await runMarketSyncNow();
     res.status(result.ok ? 200 : 500).json(result);
+  } catch (err: any) {
+    res.status(500).json({ ok: false, message: err?.message ?? "Lỗi không xác định" });
+  }
+});
+
+router.post("/market-watches/:id/scan", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, message: "ID không hợp lệ" });
+    const result = await runMarketSyncForWatch(id);
+    res.status(result.ok ? 200 : 400).json(result);
   } catch (err: any) {
     res.status(500).json({ ok: false, message: err?.message ?? "Lỗi không xác định" });
   }
