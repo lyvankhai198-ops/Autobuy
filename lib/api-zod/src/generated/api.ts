@@ -166,7 +166,9 @@ export const GetConfigResponse = zod.object({
   "orderKeyword": zod.string().nullish(),
   "sentinelValue": zod.string().optional().describe('Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment'),
   "adminChatId": zod.string().nullish().describe('Telegram chat ID of the admin to notify on errors requiring manual intervention'),
-  "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin')
+  "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin'),
+  "communityChannelId": zod.string().nullish().describe('Telegram channel\/group ID to verify membership (@username or -100xxx)'),
+  "communityChannelLink": zod.string().nullish().describe('Invite link shown on the join prompt button')
 })
 
 
@@ -181,7 +183,9 @@ export const UpdateConfigBody = zod.object({
   "orderKeyword": zod.string().nullish(),
   "sentinelValue": zod.string().nullish().describe('Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment'),
   "adminChatId": zod.string().nullish().describe('Telegram chat ID of the admin to notify on errors requiring manual intervention'),
-  "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin')
+  "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin'),
+  "communityChannelId": zod.string().nullish().describe('Telegram channel\/group ID to verify membership (@username or -100xxx)'),
+  "communityChannelLink": zod.string().nullish().describe('Invite link shown on the join prompt button')
 })
 
 export const UpdateConfigResponse = zod.object({
@@ -193,7 +197,9 @@ export const UpdateConfigResponse = zod.object({
   "orderKeyword": zod.string().nullish(),
   "sentinelValue": zod.string().optional().describe('Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment'),
   "adminChatId": zod.string().nullish().describe('Telegram chat ID of the admin to notify on errors requiring manual intervention'),
-  "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin')
+  "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin'),
+  "communityChannelId": zod.string().nullish().describe('Telegram channel\/group ID to verify membership (@username or -100xxx)'),
+  "communityChannelLink": zod.string().nullish().describe('Invite link shown on the join prompt button')
 })
 
 

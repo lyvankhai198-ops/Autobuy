@@ -73,6 +73,16 @@ export interface Config {
      * @nullable
      */
   lowBalanceThreshold?: number | null;
+  /**
+     * Telegram channel/group ID to verify membership (@username or -100xxx)
+     * @nullable
+     */
+  communityChannelId?: string | null;
+  /**
+     * Invite link shown on the join prompt button
+     * @nullable
+     */
+  communityChannelLink?: string | null;
 }
 
 export interface ConfigInput {
@@ -100,6 +110,16 @@ export interface ConfigInput {
      * @nullable
      */
   lowBalanceThreshold?: number | null;
+  /**
+     * Telegram channel/group ID to verify membership (@username or -100xxx)
+     * @nullable
+     */
+  communityChannelId?: string | null;
+  /**
+     * Invite link shown on the join prompt button
+     * @nullable
+     */
+  communityChannelLink?: string | null;
 }
 
 export interface WebhookSetupResult {

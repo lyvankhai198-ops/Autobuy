@@ -314,6 +314,12 @@ components:
         lowBalanceThreshold:
           type: ["number", "null"]
           description: Balance threshold (VND) below which a low-balance warning is sent to admin
+        communityChannelId:
+          type: ["string", "null"]
+          description: Telegram channel/group ID to verify membership (@username or -100xxx)
+        communityChannelLink:
+          type: ["string", "null"]
+          description: Invite link shown on the join prompt button
 
     ConfigInput:
       type: object
@@ -337,6 +343,12 @@ components:
         lowBalanceThreshold:
           type: ["number", "null"]
           description: Balance threshold (VND) below which a low-balance warning is sent to admin
+        communityChannelId:
+          type: ["string", "null"]
+          description: Telegram channel/group ID to verify membership (@username or -100xxx)
+        communityChannelLink:
+          type: ["string", "null"]
+          description: Invite link shown on the join prompt button
 
     WebhookSetupResult:
       type: object

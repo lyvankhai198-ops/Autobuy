@@ -24,6 +24,8 @@ router.get("/config", async (req, res): Promise<void> => {
     maintenanceMode: config.maintenanceMode ?? false,
     canbosoUsername: config.canbosoUsername ?? null,
     canbosoPasswordSet: !!config.canbosoPassword,
+    communityChannelId: config.communityChannelId ?? null,
+    communityChannelLink: config.communityChannelLink ?? null,
   });
 });
 
@@ -64,6 +66,8 @@ router.put("/config", async (req, res): Promise<void> => {
     maintenanceMode: updated.maintenanceMode ?? false,
     canbosoUsername: updated.canbosoUsername ?? null,
     canbosoPasswordSet: !!updated.canbosoPassword,
+    communityChannelId: updated.communityChannelId ?? null,
+    communityChannelLink: updated.communityChannelLink ?? null,
   });
 });
 

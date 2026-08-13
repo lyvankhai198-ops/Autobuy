@@ -19,6 +19,8 @@ export const configTable = pgTable("config", {
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   canbosoUsername: text("canboso_username"),
   canbosoPassword: text("canboso_password"),
+  communityChannelId: text("community_channel_id"),
+  communityChannelLink: text("community_channel_link"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
