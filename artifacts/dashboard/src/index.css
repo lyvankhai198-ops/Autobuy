@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@700;800&display=swap');
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -156,27 +156,14 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10);
   }
 
-  .logo-shimmer {
-    background: linear-gradient(
-      105deg,
-      #ffffff 0%,
-      #c4b5fd 18%,
-      #818cf8 35%,
-      #5B5BF7 48%,
-      #818cf8 62%,
-      #c4b5fd 78%,
-      #ffffff 100%
-    );
-    background-size: 250% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: logo-sweep 4s ease-in-out infinite;
+  .logo-icon {
+    background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 40%, #4F46E5 100%);
+    box-shadow: 0 0 18px rgba(139, 92, 246, 0.65), 0 0 6px rgba(139, 92, 246, 0.4);
   }
-}
 
-@keyframes logo-sweep {
-  0%   { background-position: 0% center; }
-  50%  { background-position: 100% center; }
-  100% { background-position: 0% center; }
+  .logo-text {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
 }

@@ -58,11 +58,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="md:hidden fixed top-0 inset-x-0 z-40 h-[60px] bg-[#0D1117] flex items-center justify-between px-4 border-b border-white/[0.06]">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="h-[44px] w-[44px] rounded-xl bg-[#5B5BF7] flex items-center justify-center shadow-lg shadow-[#5B5BF7]/30">
-            <Zap className="h-5 w-5 text-white" />
+          <div className="logo-icon h-[44px] w-[44px] rounded-full flex items-center justify-center shrink-0">
+            <Zap className="h-[22px] w-[22px] text-white drop-shadow-sm" strokeWidth={2.5} />
           </div>
-          <span className="logo-shimmer font-bold text-[24px] tracking-tight">
-            AutoOrder
+          <span className="logo-text text-[25px] text-white">
+            Auto<span className="text-[#a78bfa]">Order</span>
           </span>
         </div>
         {/* Right icons */}
@@ -142,11 +142,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <aside className="hidden md:flex w-56 shrink-0 flex-col bg-[#0D1117] min-h-screen sticky top-0">
         {/* Logo */}
         <div className="h-14 flex items-center px-4 shrink-0 gap-2.5">
-          <div className="h-7 w-7 rounded-lg bg-[#5B5BF7] flex items-center justify-center shadow-lg shadow-[#5B5BF7]/30">
-            <Zap className="h-3.5 w-3.5 text-white" />
+          <div className="logo-icon h-8 w-8 rounded-full flex items-center justify-center shrink-0">
+            <Zap className="h-4 w-4 text-white" strokeWidth={2.5} />
           </div>
-          <span className="logo-shimmer font-bold text-[19px] tracking-tight">
-            AutoOrder
+          <span className="logo-text text-[18px] text-white">
+            Auto<span className="text-[#a78bfa]">Order</span>
           </span>
         </div>
 
