@@ -116,16 +116,31 @@ export default function Dashboard() {
     : null;
 
   return (
-    <div className="space-y-4">
+    <div>
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-3 flex-wrap pt-1">
+      <div className="flex items-start justify-between gap-3">
+        {/* Left: title + subtitle + mobile status row */}
         <div>
-          <h1 className="text-[29px] font-bold tracking-tight leading-tight">Tổng quan</h1>
-          <p className="text-muted-foreground text-[15px] mt-0.5">Theo dõi hoạt động hệ thống và đơn hàng.</p>
+          <h1 className="text-[31px] font-bold tracking-tight leading-tight">Tổng quan</h1>
+          <p className="text-muted-foreground text-[15px] mt-[7px]">Theo dõi hoạt động hệ thống và đơn hàng.</p>
+          {/* Mobile: status + refresh below subtitle */}
+          <div className="flex items-center gap-2 mt-[24px] md:hidden">
+            <Button
+              variant="ghost" size="sm" className="gap-1.5 h-8 text-[13px] px-2"
+              onClick={() => queryClient.invalidateQueries()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+            <div className="flex items-center gap-1.5 text-[12px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1.5 whitespace-nowrap">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Hệ thống OK
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <div className="text-right hidden sm:block">
+        {/* Desktop: buttons on right */}
+        <div className="hidden md:flex items-center gap-2.5">
+          <div className="text-right">
             <Button
               variant="outline" size="sm" className="gap-1.5 h-8 text-[13px]"
               onClick={handleSyncNow} disabled={syncing}
@@ -142,9 +157,8 @@ export default function Dashboard() {
             onClick={() => queryClient.invalidateQueries()}
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Làm mới</span>
+            <span>Làm mới</span>
           </Button>
-          {/* System status pill */}
           <div className="flex items-center gap-1.5 text-[12px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1.5 whitespace-nowrap">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Hệ thống OK
@@ -153,7 +167,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── KPI 2×2 ── */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="mt-[30px] grid grid-cols-2 gap-3">
         <KpiCard
           label="Tổng đơn" value={total} loading={statsLoading}
           icon={ShoppingBag} iconColor="text-[#5B5BF7]" iconBg="bg-[#5B5BF7]/8"
@@ -182,7 +196,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Chart ── */}
-      <div className="bg-white rounded-xl shadow-card border border-border/60 overflow-hidden">
+      <div className="mt-[30px] bg-white rounded-xl shadow-card border border-border/60 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
           <h2 className="text-[13px] font-semibold">Đơn hàng theo ngày</h2>
           <div className="flex gap-1 bg-muted rounded-lg p-0.5">
@@ -241,7 +255,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Main 2-col ── */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="mt-[30px] grid gap-4 lg:grid-cols-3">
 
         {/* Recent orders — 2/3 */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-card border border-border/60 overflow-hidden">

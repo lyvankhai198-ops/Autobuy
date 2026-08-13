@@ -201,7 +201,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {/* ════════════════ CONTENT ════════════════ */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile: space for fixed header + bottom nav */}
-        <div className="flex-1 overflow-auto pt-[60px] pb-16 md:pt-0 md:pb-0 px-4 md:px-7 py-3 md:py-7">
+        <div className="flex-1 overflow-auto pt-[84px] pb-16 md:pt-0 md:pb-0 px-4 md:px-7 md:py-7">
           <div className="mx-auto max-w-5xl">
             {children}
           </div>
