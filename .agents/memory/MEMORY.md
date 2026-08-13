@@ -2,3 +2,4 @@
 - [Canboso poller architecture](canboso-poller.md) — API endpoints, auth flow, why delivery goes via Telegram chatId (no general complete-order API exists)
 - [Multi-account Canboso poller](multi-account-poller.md) — CanbosoClient class per account, cross-account sentinel detection via code fallback, CANBOSO2_* env vars
 - [VPS deploy workflow](vps-deploy.md) — push to GitHub then SSH deploy; PM2 process autoorder-api at /root/autoorder port 3002; must source .env in start script
+- [VPS tenant_id DB constraint](tenant-id-vps-constraint.md) — ⚠️ CRITICAL: 4 prod tables have tenant_id NOT NULL DEFAULT 1; never drop or reset; losing DEFAULT breaks account-2 orders silently
