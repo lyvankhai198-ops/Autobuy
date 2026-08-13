@@ -58,10 +58,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="md:hidden fixed top-0 inset-x-0 z-40 h-[60px] bg-[#0D1117] flex items-center justify-between px-4 border-b border-white/[0.06]">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="logo-icon h-[44px] w-[44px] rounded-full flex items-center justify-center shrink-0">
-            <Zap className="h-[22px] w-[22px] text-white drop-shadow-sm" strokeWidth={2.5} />
-          </div>
-          <span className="logo-text text-[25px] text-white">
+          {/* Logo icon — outline circle + bolt SVG */}
+          <svg width="40" height="40" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"
+            style={{ filter: "drop-shadow(0 0 5px rgba(139,92,246,0.28))", flexShrink: 0 }}>
+            <defs>
+              <linearGradient id="mob_cg" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#38BDF8" />
+                <stop offset="1" stopColor="#7C3AED" />
+              </linearGradient>
+            </defs>
+            <circle cx="22" cy="22" r="19.5" stroke="url(#mob_cg)" strokeWidth="1.8" />
+            <polygon points="23,14 15,24 22,24 21,30 29,20 22,20" fill="white" />
+          </svg>
+          <span className="logo-text text-[26px] text-white" style={{ gap: 0 }}>
             Auto<span className="text-[#a78bfa]">Order</span>
           </span>
         </div>
@@ -142,9 +151,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <aside className="hidden md:flex w-56 shrink-0 flex-col bg-[#0D1117] min-h-screen sticky top-0">
         {/* Logo */}
         <div className="h-14 flex items-center px-4 shrink-0 gap-2.5">
-          <div className="logo-icon h-8 w-8 rounded-full flex items-center justify-center shrink-0">
-            <Zap className="h-4 w-4 text-white" strokeWidth={2.5} />
-          </div>
+          {/* Logo icon — outline circle + bolt SVG */}
+          <svg width="32" height="32" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"
+            style={{ filter: "drop-shadow(0 0 4px rgba(139,92,246,0.25))", flexShrink: 0 }}>
+            <defs>
+              <linearGradient id="dsk_cg" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#38BDF8" />
+                <stop offset="1" stopColor="#7C3AED" />
+              </linearGradient>
+            </defs>
+            <circle cx="22" cy="22" r="19.5" stroke="url(#dsk_cg)" strokeWidth="1.8" />
+            <polygon points="23,14 15,24 22,24 21,30 29,20 22,20" fill="white" />
+          </svg>
           <span className="logo-text text-[18px] text-white">
             Auto<span className="text-[#a78bfa]">Order</span>
           </span>

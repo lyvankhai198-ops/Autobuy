@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Sora:wght@600;700&display=swap');
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -156,14 +156,9 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10);
   }
 
-  .logo-icon {
-    background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 40%, #4F46E5 100%);
-    box-shadow: 0 0 18px rgba(139, 92, 246, 0.65), 0 0 6px rgba(139, 92, 246, 0.4);
-  }
-
   .logo-text {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    font-family: 'Sora', 'Inter', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.015em;
   }
 }
