@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ShoppingBag, Plus, Trash2, Play, Pause, RotateCcw, Search,
-  TrendingUp, AlertCircle, CheckCircle2, Clock, Loader2, Eye, ChevronUp, Pencil, X, Timer, Sparkles
+  TrendingUp, AlertCircle, CheckCircle2, Clock, Loader2, Eye, ChevronUp, Pencil, X, Timer
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -132,67 +132,6 @@ export default function Market() {
       setSavingInterval(false);
     }
   };
-
-  // Suggest dialog state
-  interface Suggestion {
-    sellerProductId: string;
-    sellerProductName: string;
-    currentPrice: number;
-    suggestedSource: { _id: string; product_name: string; marketSalePrice: number; available: number };
-    suggestedKeywords: string[];
-    potentialSaving: number;
-  }
-  const [suggestOpen, setSuggestOpen] = useState(false);
-  const [suggestLoading, setSuggestLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [selectedSuggestIds, setSelectedSuggestIds] = useState<Set<string>>(new Set());
-  const [creatingRules, setCreatingRules] = useState(false);
-
-  const handleOpenSuggest = async () => {
-    setSuggestOpen(true);
-    setSuggestLoading(true);
-    setSuggestions([]);
-    setSelectedSuggestIds(new Set());
-    try {
-      const result = await apiFetch<{ ok: boolean; suggestions: Suggestion[] }>("/api/market-watches/suggest");
-      setSuggestions(result.suggestions);
-      setSelectedSuggestIds(new Set(result.suggestions.map(s => s.sellerProductId)));
-    } catch (err: any) {
-      toast({ title: "Lỗi quét gợi ý", description: err?.message, variant: "destructive" });
-      setSuggestOpen(false);
-    } finally {
-      setSuggestLoading(false);
-    }
-  };
-
-  const handleCreateSuggestedRules = async () => {
-    const toCreate = suggestions.filter(s => selectedSuggestIds.has(s.sellerProductId));
-    if (toCreate.length === 0) return;
-    setCreatingRules(true);
-    let created = 0;
-    for (const s of toCreate) {
-      try {
-        await apiFetch("/api/market-watches", {
-          method: "POST",
-          body: JSON.stringify({
-            label: s.sellerProductName.slice(0, 80),
-            keywords: s.suggestedKeywords.join(", "),
-            markupType: "fixed",
-            markupValue: 5000,
-            minStock: 1,
-            status: "active",
-          }),
-        });
-        created++;
-      } catch { /* skip failed */ }
-    }
-    queryClient.invalidateQueries({ queryKey: ["market-watches"] });
-    toast({ title: `✅ Đã tạo ${created} quy tắc`, description: "Hệ thống sẽ tự kéo nguồn rẻ nhất trong chu kỳ quét tiếp theo." });
-    setSuggestOpen(false);
-  };
-
-  const toggleSuggest = (id: string) =>
-    setSelectedSuggestIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   // Cleanup dialog state
   const [cleanupOpen, setCleanupOpen] = useState(false);
@@ -339,84 +278,6 @@ export default function Market() {
   return (
     <div className="space-y-6">
 
-      {/* ── Suggest Dialog ────────────────────────────────────────────── */}
-      <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> Gợi ý tạo quy tắc từ shop
-            </DialogTitle>
-            <DialogDescription>
-              Hệ thống quét sản phẩm chưa có quy tắc nào quản lý và tìm nguồn rẻ hơn trên chợ.
-            </DialogDescription>
-          </DialogHeader>
-
-          {suggestLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <p className="text-sm">Đang quét chợ, vui lòng chờ...</p>
-            </div>
-          ) : suggestions.length === 0 ? (
-            <p className="text-sm text-center py-10 text-muted-foreground">
-              ✅ Tất cả sản phẩm trong shop đều đã có quy tắc, hoặc không tìm thấy nguồn rẻ hơn.
-            </p>
-          ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-              {/* Select all */}
-              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground pb-2 border-b">
-                <input
-                  type="checkbox"
-                  checked={selectedSuggestIds.size === suggestions.length}
-                  onChange={() => setSelectedSuggestIds(
-                    selectedSuggestIds.size === suggestions.length
-                      ? new Set()
-                      : new Set(suggestions.map(s => s.sellerProductId))
-                  )}
-                />
-                Chọn tất cả ({suggestions.length} gợi ý)
-              </label>
-              {suggestions.map(s => (
-                <label key={s.sellerProductId} className="flex items-start gap-2.5 cursor-pointer hover:bg-muted/40 rounded-md px-2 py-2">
-                  <input
-                    type="checkbox"
-                    className="mt-1 shrink-0"
-                    checked={selectedSuggestIds.has(s.sellerProductId)}
-                    onChange={() => toggleSuggest(s.sellerProductId)}
-                  />
-                  <div className="min-w-0 space-y-1 flex-1">
-                    <p className="text-sm font-medium leading-snug break-all">{s.sellerProductName}</p>
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span>Đang bán: <b className="text-foreground">{fmt(s.currentPrice)}</b></span>
-                      <span>→ Nguồn rẻ hơn: <b className="text-green-600">{fmt(s.suggestedSource.marketSalePrice)}</b></span>
-                      <span className="text-green-600 font-semibold">Tiết kiệm: {fmt(s.potentialSaving)}</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      📦 {s.suggestedSource.product_name} · còn {s.suggestedSource.available} hàng
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Từ khóa: <span className="font-mono">{s.suggestedKeywords.join(", ")}</span>
-                    </p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSuggestOpen(false)}>Hủy</Button>
-            {suggestions.length > 0 && (
-              <Button
-                size="sm" className="gap-1.5"
-                disabled={selectedSuggestIds.size === 0 || creatingRules}
-                onClick={handleCreateSuggestedRules}
-              >
-                {creatingRules && <Loader2 className="h-3 w-3 animate-spin" />}
-                Tạo {selectedSuggestIds.size > 0 ? `${selectedSuggestIds.size} ` : ""}quy tắc đã chọn
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Cleanup Dialog ────────────────────────────────────────────── */}
       <Dialog open={cleanupOpen} onOpenChange={setCleanupOpen}>
@@ -509,13 +370,6 @@ export default function Market() {
               <option value="86400000">1 ngày</option>
             </select>
           </div>
-          <Button
-            variant="outline" size="sm" className="gap-2"
-            onClick={handleOpenSuggest} disabled={suggestLoading}
-          >
-            {suggestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Quét gợi ý
-          </Button>
           <Button
             variant="outline" size="sm" className="gap-2"
             onClick={handleScanNow} disabled={scanning}
