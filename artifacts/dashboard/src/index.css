@@ -155,4 +155,28 @@
   .shadow-card-hover {
     box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10);
   }
+
+  .logo-shimmer {
+    background: linear-gradient(
+      105deg,
+      #ffffff 0%,
+      #c4b5fd 18%,
+      #818cf8 35%,
+      #5B5BF7 48%,
+      #818cf8 62%,
+      #c4b5fd 78%,
+      #ffffff 100%
+    );
+    background-size: 250% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: logo-sweep 4s ease-in-out infinite;
+  }
+}
+
+@keyframes logo-sweep {
+  0%   { background-position: 0% center; }
+  50%  { background-position: 100% center; }
+  100% { background-position: 0% center; }
 }

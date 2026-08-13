@@ -61,8 +61,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="h-[44px] w-[44px] rounded-xl bg-[#5B5BF7] flex items-center justify-center shadow-lg shadow-[#5B5BF7]/30">
             <Zap className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-[24px] tracking-tight text-white">
-            Auto<span className="text-[#8080ff]">Order</span>
+          <span className="logo-shimmer font-bold text-[24px] tracking-tight">
+            AutoOrder
           </span>
         </div>
         {/* Right icons */}
@@ -145,8 +145,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="h-7 w-7 rounded-lg bg-[#5B5BF7] flex items-center justify-center shadow-lg shadow-[#5B5BF7]/30">
             <Zap className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="font-bold text-[19px] tracking-tight text-white">
-            Auto<span className="text-[#8080ff]">Order</span>
+          <span className="logo-shimmer font-bold text-[19px] tracking-tight">
+            AutoOrder
           </span>
         </div>
 
