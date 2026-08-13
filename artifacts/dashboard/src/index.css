@@ -55,33 +55,34 @@
 }
 
 :root {
-  --background: 220 20% 97%;
+  /* Background: #F6F7FB — cool off-white */
+  --background: 228 33% 97%;
   --foreground: 224 71% 4%;
 
-  --border: 220 13% 90%;
-  --input: 220 13% 90%;
-  --ring: 239 84% 67%;
+  --border: 220 14% 90%;
+  --input: 220 14% 90%;
+  --ring: 240 91% 66%;
 
   --card: 0 0% 100%;
   --card-foreground: 224 71% 4%;
-  --card-border: 220 13% 91%;
+  --card-border: 220 14% 92%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 224 71% 4%;
-  --popover-border: 220 13% 91%;
+  --popover-border: 220 14% 92%;
 
-  /* Indigo primary */
-  --primary: 239 84% 67%;
+  /* Primary: #5B5BF7 */
+  --primary: 240 91% 66%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 13% 93%;
+  --secondary: 220 14% 93%;
   --secondary-foreground: 224 71% 4%;
 
   --muted: 220 14% 95%;
-  --muted-foreground: 220 9% 50%;
+  --muted-foreground: 220 9% 52%;
 
-  --accent: 239 84% 97%;
-  --accent-foreground: 239 84% 50%;
+  --accent: 240 91% 97%;
+  --accent-foreground: 240 60% 50%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
@@ -107,7 +108,7 @@
 
   --border: 215 28% 14%;
   --input: 215 28% 14%;
-  --ring: 239 84% 67%;
+  --ring: 240 91% 66%;
 
   --card: 222 47% 7%;
   --card-foreground: 220 20% 97%;
@@ -117,7 +118,7 @@
   --popover-foreground: 220 20% 97%;
   --popover-border: 215 28% 14%;
 
-  --primary: 239 84% 67%;
+  --primary: 240 91% 66%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 215 28% 14%;
@@ -126,8 +127,8 @@
   --muted: 215 28% 11%;
   --muted-foreground: 215 20% 55%;
 
-  --accent: 239 50% 15%;
-  --accent-foreground: 239 84% 80%;
+  --accent: 240 50% 15%;
+  --accent-foreground: 240 84% 80%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
@@ -143,19 +144,13 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
-  }
+  * { @apply border-border; }
+  body { @apply font-sans antialiased bg-background text-foreground; }
 }
 
-/* Card shadow system */
 @layer utilities {
   .shadow-card {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05);
   }
   .shadow-card-hover {
     box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10);

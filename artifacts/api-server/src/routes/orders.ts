@@ -68,6 +68,26 @@ router.get("/orders/recent", async (req, res): Promise<void> => {
   res.json(orders);
 });
 
+router.get("/orders/chart", async (req, res): Promise<void> => {
+  const period = (req.query.period as string) || "7d";
+  const days = period === "30d" ? 30 : period === "3m" ? 90 : 7;
+
+  const intervalStr = `${days} days`;
+  const rows = await db.execute(sql`
+    SELECT
+      TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS date,
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE status = 'fulfilled')::int AS fulfilled,
+      COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
+    FROM orders
+    WHERE created_at >= NOW() - CAST(${intervalStr} AS interval)
+    GROUP BY DATE_TRUNC('day', created_at)
+    ORDER BY DATE_TRUNC('day', created_at) ASC
+  `);
+
+  res.json({ data: rows.rows });
+});
+
 router.get("/orders/:id", async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse(req.params);
   if (!params.success) {
