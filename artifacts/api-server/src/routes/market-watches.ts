@@ -235,14 +235,11 @@ router.post("/market-watches/scan-now", async (_req, res) => {
 });
 
 router.post("/market-watches/:id/scan", async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ ok: false, message: "ID không hợp lệ" });
-    const result = await runMarketSyncForWatch(id);
-    res.status(result.ok ? 200 : 400).json(result);
-  } catch (err: any) {
-    res.status(500).json({ ok: false, message: err?.message ?? "Lỗi không xác định" });
-  }
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, message: "ID không hợp lệ" });
+  // Fire-and-forget: return immediately, scan runs in background
+  runMarketSyncForWatch(id).catch(() => {});
+  res.json({ ok: true, message: "Đang quét, kết quả cập nhật sau vài giây…" });
 });
 
 // ── Preview best source ─────────────────────────────────────────────────────

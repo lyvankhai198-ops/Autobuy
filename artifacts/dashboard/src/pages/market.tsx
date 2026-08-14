@@ -649,11 +649,13 @@ export default function Market() {
                 toast({ title: "✅ Đã lưu thay đổi" });
               }}
               onScan={async () => {
-                const result = await apiFetch<{ ok: boolean; message: string }>(
+                await apiFetch<{ ok: boolean; message: string }>(
                   `/api/market-watches/${w.id}/scan`, { method: "POST" }
                 );
-                queryClient.invalidateQueries({ queryKey: ["market-watches"] });
-                toast({ title: result.ok ? "✅ " + result.message : "⚠️ " + result.message });
+                toast({ title: "🔄 Đang quét, tự động cập nhật sau vài giây…" });
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ["market-watches"] });
+                }, 8000);
               }}
               deleting={deleteMutation.isPending}
               toggling={toggleMutation.isPending}
