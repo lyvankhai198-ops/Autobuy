@@ -221,13 +221,26 @@ async function processWatch(watch: MarketWatch, config: any): Promise<void> {
     );
   }
 
-  // 4. Current source is OOS/missing, or a cheaper source was found — switch ──
+  // 4. Current source is OOS/missing/excluded, or a cheaper source was found — switch ──
   if (!bestAvailable) {
     const oos = candidates.filter(p => !p.isMine && p.marketSalePrice !== null);
     logger.warn({ watchId: watch.id, label: watch.label, totalCandidates: candidates.length, oos: oos.length }, "Market: no valid source found");
 
+    // Clear the old source so we don't keep using an excluded/OOS product
+    if (watch.currentSellerProductId) {
+      await deleteSellerProduct(watch.currentSellerProductId).catch(
+        (err) => logger.warn({ err: err?.message, watchId: watch.id }, "Market: failed to delete old seller product when clearing source")
+      );
+    }
+
     await db.update(marketWatchesTable)
-      .set({ lastError: `Không tìm thấy nguồn nào có hàng (${candidates.length} sản phẩm khớp, ${oos.length} hết hàng)` })
+      .set({
+        lastError: `Không tìm thấy nguồn nào có hàng (${candidates.length} sản phẩm khớp, ${oos.length} hết hàng)`,
+        currentMarketProductId: null,
+        currentMarketProductName: null,
+        currentSellerProductId: null,
+        lastMarketPrice: null,
+      })
       .where(eq(marketWatchesTable.id, watch.id));
     return;
   }
