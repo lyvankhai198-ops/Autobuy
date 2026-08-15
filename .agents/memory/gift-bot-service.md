@@ -36,3 +36,18 @@ journalctl -u gift-bot.service -n 50 --no-pager
 - Model: `nghi/claude-haiku-4.5`
 - `max_tokens=200` (reduced from 512 for faster response ~2-3s)
 - Venv has `anthropic==0.122.0` installed
+
+## Admin panel web
+
+- URL: `http://103.180.138.203/admin-panel/#/chat-support` → tab **Cài đặt**
+- Frontend source: `/root/Bot-Qu-Tng/artifacts/admin-panel/src/pages/chat-support.tsx`
+- Backend API: `/root/Bot-Qu-Tng/artifacts/api-server/src/routes/chatSupport.ts`
+- Build command: `cd artifacts/admin-panel && PORT=8080 BASE_PATH=/admin-panel/ npx vite build --config vite.config.ts`
+- Restart API: `systemctl restart bot-api.service`
+
+## Critical gotchas discovered
+
+- `msg_map[mid]` must be `str(user_id)` — NOT a dict. `_route_admin_chat_reply` does `.get(uid_str)` and uses it as a dict key.
+- In AI mode, `_notify_admin_new_session` must be called explicitly on first message (not auto-called like in live mode).
+- `_notify_admin_new_session` must have `data=None` param or all callers using `data=data` crash with TypeError.
+- Admin panel build needs both `PORT` and `BASE_PATH` env vars.
