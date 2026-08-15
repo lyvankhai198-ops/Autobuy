@@ -306,6 +306,7 @@ async function processOrder(
   useCodeFallback = false,
 ): Promise<void> {
   if (!skipStartedAtCheck && order.paidAt && new Date(order.paidAt) < startedAt) return;
+  // Quick pre-check (optimisation — avoids DB insert attempt for already-known orders)
   if (await isAlreadyProcessed(order.orderCode)) return;
 
   if (order.productId && await isMarketWatchProduct(order.productId)) {
@@ -315,12 +316,15 @@ async function processOrder(
 
   const productLabel = order.displayProductType ?? order.productType;
   const orderKind = order.status === "completed" ? "sentinel-completed" : "paid";
-  logger.info({ orderCode: order.orderCode, product: productLabel, kind: orderKind, accountLabel }, "Poller: new order detected — processing");
 
   const chatId = String(order.chatId);
   // Determine language for customer-facing messages
   const lang: 'vi' | 'en' = preferredBotToken ? 'en' : 'vi';
 
+  // Atomic claim: onConflictDoNothing() ensures only ONE poller wins this order.
+  // If another poller (e.g. account-2) already inserted this orderCode, the insert
+  // returns no rows and we bail out immediately — prevents double-processing and
+  // wrong-bot delivery.
   const [dbOrder] = await db
     .insert(ordersTable)
     .values({
@@ -332,7 +336,16 @@ async function processOrder(
       canbosoOrderCode: order.orderCode,
       accountSlot: accountLabel ?? null,
     })
+    .onConflictDoNothing()
     .returning();
+
+  // Another poller already claimed this order — stop here
+  if (!dbOrder) {
+    logger.info({ orderCode: order.orderCode, accountLabel }, "Poller: order already claimed by another account — skipping");
+    return;
+  }
+
+  logger.info({ orderCode: order.orderCode, product: productLabel, kind: orderKind, accountLabel }, "Poller: new order detected — processing");
 
   await sendWaitingMessage(chatId, preferredBotToken, lang).catch(() => {});
 
