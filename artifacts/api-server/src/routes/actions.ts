@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { getConfig } from "../lib/config";
 import { triggerAutoFulfill } from "../lib/fulfillment";
 import { runSyncNow } from "../lib/poller";
+import { invalidateProductCache } from "../lib/products";
 import { CanbosoClient } from "../lib/canboso";
 
 const router: IRouter = Router();
@@ -38,6 +39,7 @@ router.post("/actions/test-bot", async (req, res): Promise<void> => {
  * Immediately runs stock + price + visibility sync without waiting for the 5-min timer.
  */
 router.post("/actions/sync-now", async (_req, res): Promise<void> => {
+  invalidateProductCache(); // force source-API cache to refresh on next fetch
   const result = await runSyncNow();
   res.status(result.ok ? 200 : 500).json(result);
 });

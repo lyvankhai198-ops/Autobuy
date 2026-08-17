@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, RefreshCw, ArrowRight, Package2, TrendingUp } from "lucide-react";
+import { Plus, Trash2, RefreshCw, ArrowRight, Package2, TrendingUp, Zap } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -116,6 +116,17 @@ export default function Mappings() {
     onError: () => toast({ title: "Lỗi khi xóa", variant: "destructive" }),
   });
 
+  const syncMutation = useMutation({
+    mutationFn: () => apiFetch<{ ok: boolean; message: string }>("/api/actions/sync-now", { method: "POST" }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["canboso-products"] });
+      queryClient.invalidateQueries({ queryKey: ["source-products"] });
+      queryClient.invalidateQueries({ queryKey: ["mappings"] });
+      toast({ title: "Đồng bộ xong!", description: data.message });
+    },
+    onError: (err: any) => toast({ title: "Lỗi đồng bộ", description: err?.message, variant: "destructive" }),
+  });
+
   const handleCreate = () => {
     if (!code.trim() || !selectedCanboso || !selectedSource) {
       toast({ title: "Vui lòng điền đầy đủ", variant: "destructive" });
@@ -156,11 +167,29 @@ export default function Mappings() {
       {/* Existing mappings */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package2 className="h-5 w-5 text-primary" />
-            Danh Sách Ánh Xạ
-          </CardTitle>
-          <CardDescription>{mappings.length} ánh xạ đang hoạt động</CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Package2 className="h-5 w-5 text-primary" />
+                Danh Sách Ánh Xạ
+              </CardTitle>
+              <CardDescription className="mt-1">{mappings.length} ánh xạ đang hoạt động</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+            >
+              {syncMutation.isPending ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Zap className="h-3.5 w-3.5 text-yellow-500" />
+              )}
+              {syncMutation.isPending ? "Đang đồng bộ..." : "Đồng bộ ngay"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loadingMappings ? (
