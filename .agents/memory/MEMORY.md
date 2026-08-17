@@ -2,5 +2,5 @@
 - [Autobuy architecture](autobuy-architecture.md) — AutoOrder Dashboard: Telegram orders → Canboso → delivery; multi-account, sentinel stock, key gotchas
 - [Canboso poller architecture](canboso-poller.md) — API endpoints, auth flow, why delivery goes via Telegram chatId (no general complete-order API exists)
 - [Multi-account Canboso poller](multi-account-poller.md) — CanbosoClient class per account, cross-account sentinel detection via code fallback, CANBOSO2_* env vars
-- [VPS deploy workflow](vps-deploy.md) — CRITICAL UPDATE Aug 17: pm2 autoorder-api DELETED; now systemd bot-api.service owns port 3002; WorkingDirectory=/root/autoorder; DATABASE_URL must be in service env
+- [VPS deploy workflow](vps-deploy.md) — 3 projects isolated on VPS; autoorder-api.service port 3003; bot-api.service port 3002; checkgpt pm2 port 3001
 - [VPS tenant_id DB constraint](tenant-id-vps-constraint.md) — ⚠️ CRITICAL: 4 prod tables have tenant_id NOT NULL DEFAULT 1; never drop or reset; losing DEFAULT breaks account-2 orders silently

@@ -1,45 +1,59 @@
 ---
 name: VPS deploy workflow
-description: How to deploy the AutoOrder API server to VPS 103.180.138.203, including service management, ports, and gotchas.
+description: How to deploy the AutoOrder API server to VPS 103.180.138.203, including service management, ports, and 3-project isolation.
 ---
 
-## Deploy flow
-1. `git push origin main` from Replit workspace
-2. SSH to VPS: `cd /root/autoorder && git pull origin main`
-3. Build: `pnpm --filter @workspace/api-server build`
-4. Restart: `systemctl restart bot-api.service`
+## 3-Project isolation on VPS 103.180.138.203
 
-## Service: bot-api.service
-- **Managed by**: `systemctl` (NOT pm2 anymore — pm2 `autoorder-api` was deleted Aug 17 2026)
-- **Working directory**: `/root/autoorder` (was wrongly set to `/root/Bot-Qu-Tng` before Aug 17 2026 fix)
-- **Port**: `3002` (environment `PORT=3002` in service file)
-- **Service file**: `/etc/systemd/system/bot-api.service`
-- **Required env vars in service**: `PORT`, `DATABASE_URL`, `SESSION_SECRET`, `NODE_ENV`, and others
+| Project | Dir | Service | Port | Nginx paths |
+|---------|-----|---------|------|-------------|
+| **AutoOrder** | `/root/autoorder` | `autoorder-api.service` (systemd) | **3003** | `/autoorder/`, `/autoorder/api/` |
+| **Bot-Qu-Tng** | `/root/Bot-Qu-Tng` | `bot-api.service` (systemd) | 3002 | `/api/`, `/admin-panel/` |
+| **CheckGPT** | `/opt/checkgpt` | pm2 `api-server` (id=0) | 3001 | `/checkgpt-api/`, `/checkgpt-admin/` |
+
+**Why:** Previously AutoOrder had NO service — nginx was routing `/autoorder/api/` to port 3002 (Bot-Qu-Tng), causing blank dashboard. Fixed Aug 17 2026 by creating `autoorder-api.service` on port 3003.
+
+## Deploy flow for AutoOrder
+
+```bash
+# Option 1: automated script
+VPS_PASSWORD='...' bash deploy/deploy-vps.sh
+
+# Option 2: manual
+cd /root/autoorder
+git pull origin main
+pnpm install --frozen-lockfile
+pnpm --filter @workspace/api-server build
+BASE_PATH=/autoorder/ pnpm --filter @workspace/dashboard build
+cp -r artifacts/dashboard/dist/public/. /var/www/autoorder/dashboard/
+systemctl restart autoorder-api.service
+```
+
+## Service: autoorder-api.service
+- **Port**: 3003 (hardcoded in service, overrides .env PORT=3002)
+- **WorkingDirectory**: `/root/autoorder`
+- **ExecStart**: `/usr/bin/node --enable-source-maps /root/autoorder/artifacts/api-server/dist/index.mjs`
+- **Env vars**: All hardcoded in service file (NOT via EnvironmentFile — systemd EnvironmentFile does NOT get overridden by Environment= for same key)
+
+## Dashboard build
+- Must be built with `BASE_PATH=/autoorder/` so Vite sets `BASE_URL=/autoorder/`
+- `main.tsx` and `App.tsx` both call `setBaseUrl(import.meta.env.BASE_URL)` → API calls become `/autoorder/api/...`
+- Static files served from `/var/www/autoorder/dashboard/` by nginx
+
+## Nginx config
+- File: `/etc/nginx/sites-enabled/botadmin`
+- `/autoorder/api/` rewrites to `/api/` then proxies to port 3003
+- `/autoorder/` serves static files from `/var/www/autoorder/dashboard/`
+- Do NOT change the port 3002 entries — those belong to Bot-Qu-Tng
 
 ## Critical gotchas
-- `DATABASE_URL` MUST be in the service environment — it's NOT auto-loaded from `.env`; it was added manually after Aug 17 2026 fix
-- The pm2 process `autoorder-api` (pid=78594) ran OLD code for 2+ days because `systemctl restart bot-api.service` was restarting the WRONG service (running from wrong WorkingDirectory with wrong PORT)
-- After deleting pm2 `autoorder-api`, the systemd service owns port 3002 exclusively
-- pm2 still manages: `api-server` (different service, port unknown) and `telegram-bot` — DO NOT touch these
+- `EnvironmentFile` does NOT get overridden by `Environment=` in systemd for the same key — always hardcode PORT and other service-specific vars directly in `Environment=` lines
+- Dashboard `BASE_PATH=/autoorder/` is required at build time; rebuilding without it breaks API routing
+- The .env file at `/root/autoorder/.env` has `PORT=3002` — intentionally NOT loaded by the service
 
-## Other pm2 processes (do not restart via systemctl)
-- `telegram-bot` (pm2 id=1): the gift-bot Telegram bot — restart via `systemctl restart gift-bot.service` NOT pm2
-- `api-server` (pm2 id=0): separate service, unknown purpose, leave alone
-
-## Database
-- Connection string is in `/root/autoorder/.env`: `DATABASE_URL=postgresql://autoorder:...@localhost:5432/autoorder`
-- 4 prod tables have `tenant_id NOT NULL DEFAULT 1` — never drop or reset
-
-## ⚠️ CRITICAL: VPS src/ directory mismatch (fixed Aug 17 2026)
-The VPS `/root/autoorder/artifacts/api-server/src/` contains Bot-Qu-Tng source files (botAdmin, ocr, marketOrders routes etc.) that are NOT in Replit's git repo. These files are gitignored or committed in a different branch on VPS, so `git pull` from Replit never overwrites them.
-
-**Symptom**: After a rebuild, all AutoOrder routes (/api/config, /api/orders/*, etc.) return 404. Only /api/healthz works.
-
-**Fix**: Use `scp` or `tar+ssh` to copy `/home/runner/workspace/artifacts/api-server/src/` to VPS, then rebuild:
-```
-cd /home/runner/workspace && tar czf /tmp/api-server-src.tar.gz artifacts/api-server/src/
-sshpass -p '...' scp -o StrictHostKeyChecking=no /tmp/api-server-src.tar.gz root@103.180.138.203:/tmp/
-sshpass -p '...' ssh root@103.180.138.203 'cd /root/autoorder && tar xzf /tmp/api-server-src.tar.gz && pnpm --filter @workspace/api-server build && systemctl restart bot-api.service'
-```
-
-**Why:** Port 3002 was occupied by an old pm2 process running Aug 15 code. All systemctl deploys silently ran from the wrong WorkingDirectory. Fix: deleted pm2 autoorder-api, fixed WorkingDirectory, added DATABASE_URL to service.
+## Other services (do NOT touch)
+- `bot-api.service`: Bot-Qu-Tng API — do NOT change its port or WorkingDirectory
+- pm2 `api-server` (id=0): CheckGPT at `/opt/checkgpt` — leave alone
+- pm2 `telegram-bot` (id=1): Node.js wrapper — leave alone
+- `gift-bot.service`: real Python Telegram bot at `/root/Bot-Qu-Tng/bot.py`
+- `sync-robot.service`: Bot Sync Robot
