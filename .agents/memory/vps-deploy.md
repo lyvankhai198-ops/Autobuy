@@ -1,57 +1,33 @@
 ---
 name: VPS deploy workflow
-description: How to push code from Replit to GitHub and deploy to the AutoOrder VPS
+description: How to deploy the AutoOrder API server to VPS 103.180.138.203, including service management, ports, and gotchas.
 ---
 
-# VPS Deploy Workflow
+## Deploy flow
+1. `git push origin main` from Replit workspace
+2. SSH to VPS: `cd /root/autoorder && git pull origin main`
+3. Build: `pnpm --filter @workspace/api-server build`
+4. Restart: `systemctl restart bot-api.service`
 
-## VPS details
-- IP: 103.180.138.203, user: root
-- Project path: `/root/autoorder`
-- Process manager: PM2, process name: `autoorder-api` (id 6, fork mode)
-- API runs on port 3002
-- PM2 script: `/root/autoorder/deploy/start-api.sh`
-- Env vars: loaded from `/root/autoorder/.env` by the start script
+## Service: bot-api.service
+- **Managed by**: `systemctl` (NOT pm2 anymore — pm2 `autoorder-api` was deleted Aug 17 2026)
+- **Working directory**: `/root/autoorder` (was wrongly set to `/root/Bot-Qu-Tng` before Aug 17 2026 fix)
+- **Port**: `3002` (environment `PORT=3002` in service file)
+- **Service file**: `/etc/systemd/system/bot-api.service`
+- **Required env vars in service**: `PORT`, `DATABASE_URL`, `SESSION_SECRET`, `NODE_ENV`, and others
 
-## Other PM2 processes on VPS (different project, do NOT touch)
-- `api-server` (id 0) — `/opt/checkgpt/artifacts/api-server`
-- `telegram-bot` (id 4) — `/opt/checkgpt/artifacts/telegram-bot`
+## Critical gotchas
+- `DATABASE_URL` MUST be in the service environment — it's NOT auto-loaded from `.env`; it was added manually after Aug 17 2026 fix
+- The pm2 process `autoorder-api` (pid=78594) ran OLD code for 2+ days because `systemctl restart bot-api.service` was restarting the WRONG service (running from wrong WorkingDirectory with wrong PORT)
+- After deleting pm2 `autoorder-api`, the systemd service owns port 3002 exclusively
+- pm2 still manages: `api-server` (different service, port unknown) and `telegram-bot` — DO NOT touch these
 
-## Full deploy sequence (run from Replit shell)
+## Other pm2 processes (do not restart via systemctl)
+- `telegram-bot` (pm2 id=1): the gift-bot Telegram bot — restart via `systemctl restart gift-bot.service` NOT pm2
+- `api-server` (pm2 id=0): separate service, unknown purpose, leave alone
 
-```bash
-# 1. Push to GitHub
-git add -A
-git commit -m "Your message"
-git push origin main
+## Database
+- Connection string is in `/root/autoorder/.env`: `DATABASE_URL=postgresql://autoorder:...@localhost:5432/autoorder`
+- 4 prod tables have `tenant_id NOT NULL DEFAULT 1` — never drop or reset
 
-# 2. SSH into VPS and deploy
-sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no root@103.180.138.203 "
-  cd /root/autoorder &&
-  git fetch origin && git reset --hard origin/main &&
-  pnpm install --frozen-lockfile &&
-  pnpm --filter @workspace/api-server run build &&
-  pm2 restart autoorder-api --update-env &&
-  sleep 2 && pm2 logs autoorder-api --lines 5 --nostream
-"
-```
-
-## Key gotchas
-- `git pull` fails if branches diverge — always use `git fetch && git reset --hard origin/main`
-- The `deploy/` folder is NOT in git (gitignored or absent) — if it disappears after a reset, recreate `deploy/start-api.sh` manually (see script content below)
-- PM2 does NOT automatically load `.env` — `start-api.sh` must `source .env` with `set -a` before exec
-- `--update-env` flag needed on `pm2 restart` to pick up env changes
-
-## deploy/start-api.sh content (recreate if missing)
-```bash
-#!/bin/bash
-set -e
-cd /root/autoorder
-if [ -f .env ]; then
-  set -a
-  source .env
-  set +a
-fi
-export NODE_ENV=production
-exec node --enable-source-maps artifacts/api-server/dist/index.mjs
-```
+**Why:** Port 3002 was occupied by an old pm2 process running Aug 15 code. All systemctl deploys silently ran from the wrong WorkingDirectory. Fix: deleted pm2 autoorder-api, fixed WorkingDirectory, added DATABASE_URL to service.
