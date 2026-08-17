@@ -20,11 +20,13 @@ import { triggerAutoFulfill } from "./fulfillment";
 import { getDefaultCanbosoClient } from "./canboso";
 import {
   getMarketProducts,
+  getSellerProducts,
   pullMarketProduct,
   deleteSellerProduct,
   updateSellerProductPricing,
   computeListingPrice,
   type MarketProduct,
+  type PulledSellerProduct,
 } from "./market-canboso";
 
 const DEFAULT_INTERVAL_MS = 5 * 60_000; // 5 minutes
@@ -254,15 +256,63 @@ async function processWatch(watch: MarketWatch, config: any): Promise<void> {
     best.marketMinListingPrice ?? sourcePrice,
   );
 
-  // Delete old seller product FIRST so Canboso doesn't reject the pull as duplicate
-  if (watch.currentSellerProductId) {
-    await deleteSellerProduct(watch.currentSellerProductId).catch(
+  // Clear the seller product ID in DB BEFORE deleting, so a failed pull
+  // doesn't leave a stale reference pointing to an already-deleted product.
+  const oldSellerProductId = watch.currentSellerProductId;
+  if (oldSellerProductId) {
+    await db.update(marketWatchesTable)
+      .set({ currentSellerProductId: null })
+      .where(eq(marketWatchesTable.id, watch.id));
+  }
+
+  // Delete old seller product so Canboso doesn't reject the pull as duplicate
+  if (oldSellerProductId) {
+    await deleteSellerProduct(oldSellerProductId).catch(
       (err) => logger.warn({ err: err?.message, watchId: watch.id }, "Market: failed to delete old seller product (continuing)")
     );
   }
 
-  // Pull the new product into our shop
-  const pulled = await pullMarketProduct(best._id, listingPrice);
+  // Pull the new product into our shop.
+  // Recovery: if Canboso rejects because the product is already in our shop
+  // (alreadyPulledToSell=true from a previous cycle whose state was lost),
+  // find the existing seller product and reuse it rather than giving up.
+  let pulled: PulledSellerProduct;
+  try {
+    pulled = await pullMarketProduct(best._id, listingPrice);
+  } catch (pullErr: any) {
+    const errMsg = String(pullErr?.message ?? "");
+    const isAlreadyPulled =
+      errMsg.includes("đã lấy") ||
+      errMsg.toLowerCase().includes("already") ||
+      errMsg.toLowerCase().includes("pulled");
+
+    if (!isAlreadyPulled) throw pullErr;
+
+    // Product is already in our shop — find and reuse the existing seller product
+    logger.warn(
+      { watchId: watch.id, marketProductId: best._id, err: errMsg },
+      "Market: pull rejected (already in shop), recovering existing seller product"
+    );
+    const sellerProducts = await getSellerProducts();
+    const existing = sellerProducts.find(p => p.marketSourceProductId === best._id);
+    if (!existing) {
+      // Can't find it — rethrow so the error is stored and the admin is notified
+      throw pullErr;
+    }
+    logger.info(
+      { watchId: watch.id, existingId: existing._id },
+      "Market: recovered existing seller product — repricing"
+    );
+    await updateSellerProductPricing(existing._id, listingPrice).catch(
+      (err) => logger.warn({ err: err?.message }, "Market: failed to reprice recovered seller product")
+    );
+    pulled = {
+      _id: existing._id,
+      product_name: existing.product_name,
+      pricing: listingPrice,
+      marketSourceProductId: best._id,
+    };
+  }
 
   const oldSource = watch.currentMarketProductName ?? "—";
   await db.update(marketWatchesTable).set({
