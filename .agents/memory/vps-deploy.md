@@ -30,4 +30,16 @@ description: How to deploy the AutoOrder API server to VPS 103.180.138.203, incl
 - Connection string is in `/root/autoorder/.env`: `DATABASE_URL=postgresql://autoorder:...@localhost:5432/autoorder`
 - 4 prod tables have `tenant_id NOT NULL DEFAULT 1` — never drop or reset
 
+## ⚠️ CRITICAL: VPS src/ directory mismatch (fixed Aug 17 2026)
+The VPS `/root/autoorder/artifacts/api-server/src/` contains Bot-Qu-Tng source files (botAdmin, ocr, marketOrders routes etc.) that are NOT in Replit's git repo. These files are gitignored or committed in a different branch on VPS, so `git pull` from Replit never overwrites them.
+
+**Symptom**: After a rebuild, all AutoOrder routes (/api/config, /api/orders/*, etc.) return 404. Only /api/healthz works.
+
+**Fix**: Use `scp` or `tar+ssh` to copy `/home/runner/workspace/artifacts/api-server/src/` to VPS, then rebuild:
+```
+cd /home/runner/workspace && tar czf /tmp/api-server-src.tar.gz artifacts/api-server/src/
+sshpass -p '...' scp -o StrictHostKeyChecking=no /tmp/api-server-src.tar.gz root@103.180.138.203:/tmp/
+sshpass -p '...' ssh root@103.180.138.203 'cd /root/autoorder && tar xzf /tmp/api-server-src.tar.gz && pnpm --filter @workspace/api-server build && systemctl restart bot-api.service'
+```
+
 **Why:** Port 3002 was occupied by an old pm2 process running Aug 15 code. All systemctl deploys silently ran from the wrong WorkingDirectory. Fix: deleted pm2 autoorder-api, fixed WorkingDirectory, added DATABASE_URL to service.
