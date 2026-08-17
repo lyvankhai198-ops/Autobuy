@@ -272,46 +272,100 @@ async function processWatch(watch: MarketWatch, config: any): Promise<void> {
     );
   }
 
-  // Pull the new product into our shop.
-  // Recovery: if Canboso rejects because the product is already in our shop
-  // (alreadyPulledToSell=true from a previous cycle whose state was lost),
-  // find the existing seller product and reuse it rather than giving up.
-  let pulled: PulledSellerProduct;
-  try {
-    pulled = await pullMarketProduct(best._id, listingPrice);
-  } catch (pullErr: any) {
-    const errMsg = String(pullErr?.message ?? "");
-    const isAlreadyPulled =
-      errMsg.includes("đã lấy") ||
-      errMsg.toLowerCase().includes("already") ||
-      errMsg.toLowerCase().includes("pulled");
-
-    if (!isAlreadyPulled) throw pullErr;
-
-    // Product is already in our shop — find and reuse the existing seller product
-    logger.warn(
-      { watchId: watch.id, marketProductId: best._id, err: errMsg },
-      "Market: pull rejected (already in shop), recovering existing seller product"
-    );
+  // Helper: find an existing seller product in our shop that corresponds to
+  // a given market product. The Canboso /seller/products API may return the
+  // back-reference under different field names depending on API version, so
+  // we try all known variants and fall back to product-name matching.
+  const recoverExistingSellerProduct = async (): Promise<PulledSellerProduct | null> => {
     const sellerProducts = await getSellerProducts();
-    const existing = sellerProducts.find(p => p.marketSourceProductId === best._id);
-    if (!existing) {
-      // Can't find it — rethrow so the error is stored and the admin is notified
-      throw pullErr;
-    }
     logger.info(
-      { watchId: watch.id, existingId: existing._id },
-      "Market: recovered existing seller product — repricing"
+      { watchId: watch.id, count: sellerProducts.length, bestId: best._id, bestName: best.product_name },
+      "Market: seller products list for recovery"
     );
-    await updateSellerProductPricing(existing._id, listingPrice).catch(
-      (err) => logger.warn({ err: err?.message }, "Market: failed to reprice recovered seller product")
-    );
-    pulled = {
-      _id: existing._id,
-      product_name: existing.product_name,
+    // Log first item's keys so we can see what field names Canboso actually returns
+    if (sellerProducts.length > 0) {
+      logger.info({ keys: Object.keys(sellerProducts[0] as any) }, "Market: seller product field names (debug)");
+    }
+    const existing = sellerProducts.find(p => {
+      const raw = p as any;
+      // Try every known field name that could link back to the market source product
+      const sourceId =
+        raw.marketSourceProductId ??
+        raw.market_product_id ??
+        raw.marketProductId ??
+        raw.source_product_id ??
+        raw.market_source_product_id ??
+        raw.sourceProductId;
+      if (sourceId && sourceId === best._id) return true;
+      // Fallback: same product name means it's the same market product
+      return String(raw.product_name ?? "").trim() === best.product_name.trim();
+    });
+    if (!existing) return null;
+    return {
+      _id: (existing as any)._id,
+      product_name: (existing as any).product_name,
       pricing: listingPrice,
       marketSourceProductId: best._id,
+      marketSourceUnitCost: best.marketSalePrice ?? 0,
     };
+  };
+
+  // Pull the new product into our shop.
+  // If Canboso signals the product is already in our shop (alreadyPulledToSell=true
+  // on the market listing, or the pull API rejects with "already pulled"), skip the
+  // pull call and reuse the existing seller product instead.
+  let pulled: PulledSellerProduct;
+
+  if (best.alreadyPulledToSell) {
+    // Pre-pull short-circuit: product is already in our shop — recover without calling pull
+    logger.warn(
+      { watchId: watch.id, marketProductId: best._id },
+      "Market: product already in shop (alreadyPulledToSell=true), recovering without pull"
+    );
+    const recovered = await recoverExistingSellerProduct();
+    if (!recovered) {
+      throw new Error("Bạn đã lấy sản phẩm này xuống treo rồi (không tìm thấy seller product để dùng lại)");
+    }
+    logger.info(
+      { watchId: watch.id, existingId: recovered._id },
+      "Market: recovered existing seller product (pre-pull) — repricing"
+    );
+    await updateSellerProductPricing(recovered._id, listingPrice).catch(
+      (err) => logger.warn({ err: err?.message }, "Market: failed to reprice recovered seller product")
+    );
+    pulled = recovered;
+  } else {
+    try {
+      pulled = await pullMarketProduct(best._id, listingPrice);
+    } catch (pullErr: any) {
+      const errMsg = String(pullErr?.message ?? "");
+      const isAlreadyPulled =
+        errMsg.includes("đã lấy") ||
+        errMsg.toLowerCase().includes("already") ||
+        errMsg.toLowerCase().includes("pulled");
+
+      if (!isAlreadyPulled) throw pullErr;
+
+      // Canboso rejected the pull because the product is already in our shop —
+      // find and reuse the existing seller product
+      logger.warn(
+        { watchId: watch.id, marketProductId: best._id, err: errMsg },
+        "Market: pull rejected (already in shop), recovering existing seller product"
+      );
+      const recovered = await recoverExistingSellerProduct();
+      if (!recovered) {
+        // Can't find it — rethrow so the error is stored and admin is notified
+        throw pullErr;
+      }
+      logger.info(
+        { watchId: watch.id, existingId: recovered._id },
+        "Market: recovered existing seller product (post-error) — repricing"
+      );
+      await updateSellerProductPricing(recovered._id, listingPrice).catch(
+        (err) => logger.warn({ err: err?.message }, "Market: failed to reprice recovered seller product")
+      );
+      pulled = recovered;
+    }
   }
 
   const oldSource = watch.currentMarketProductName ?? "—";
