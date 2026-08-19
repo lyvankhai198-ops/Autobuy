@@ -1,0 +1,66 @@
+Hãy sửa lỗi bot phụ không giao hàng, nhưng KHÔNG được làm hỏng flow đang hoạt động của bot chính.
+
+Tình trạng thực tế:
+
+* Bot chính: thanh toán → nhận order → xử lý → lấy hàng → giao sản phẩm → hoàn thành: ĐANG HOẠT ĐỘNG.
+* Bot phụ: thanh toán → tạo order → hiện “Đơn hàng của bạn đang được xử lý…” nhưng KHÔNG giao sản phẩm.
+* Task hiện tại liên quan đến “Khóa định tuyến bot theo đơn”.
+
+Yêu cầu:
+
+1. Đọc toàn bộ code liên quan đến:
+    * order polling
+    * bot routing
+    * accountSlot
+    * order claiming
+    * purchase/fulfillment
+    * Telegram delivery
+    * retry
+    * database schema
+    * cả bot chính và bot phụ.
+2. Tìm nguyên nhân thực sự khiến order của bot phụ bị kẹt ở trạng thái processing. Không được sửa kiểu hard-code hoặc đoán nguyên nhân.
+3. Kiểm tra đặc biệt:
+    * Order tạo từ bot phụ có được poller của bot phụ nhận hay không.
+    * accountSlot của order có được lưu chính xác hay không.
+    * Order có bị poller của bot chính claim trước không.
+    * Sau khi claim, mọi bước của order có tiếp tục sử dụng đúng bot/accountSlot đã claim hay không.
+    * Bot phụ có gọi đúng supplier/API để lấy sản phẩm hay không.
+    * Bot phụ có token/config riêng và code có thực sự sử dụng đúng config đó hay không.
+    * Có exception nào đang bị nuốt khiến order cứ nằm ở processing hay không.
+    * Có race condition giữa 2 poller hay không.
+4. Sửa routing theo nguyên tắc:
+    * Mỗi order chỉ được một poller claim.
+    * Khi order đã được claim, phải cố định accountSlot của order.
+    * Từ lúc claim đến lúc fulfillment hoàn tất, tuyệt đối không được tự đổi sang bot khác.
+    * Bot chính vẫn phải tiếp tục hoạt động như hiện tại.
+    * Bot phụ phải có khả năng hoàn thành toàn bộ flow độc lập.
+5. Sửa thêm vấn đề retry/idempotency:
+    * Nếu supplier đã mua/lấy sản phẩm thành công nhưng Telegram gửi thất bại, retry KHÔNG được mua/lấy sản phẩm lần 2.
+    * Retry phải tiếp tục từ bước đang thất bại.
+    * Chỉ đánh dấu fulfilled sau khi giao Telegram thành công.
+    * Không được tạo đơn mua trùng.
+6. Thêm logging rõ ràng cho mỗi order:
+    orderId → accountSlot → poller → claim → purchase → delivery → final status
+    Khi bot phụ lỗi phải log được chính xác lỗi ở bước nào.
+7. Sau khi sửa, tự test ít nhất các case:
+    * Order của bot chính.
+    * Order của bot phụ.
+    * Hai bot cùng poll một order.
+    * Hai order đồng thời, mỗi order thuộc một bot khác nhau.
+    * Purchase thành công nhưng Telegram delivery thất bại.
+    * Retry sau khi purchase đã thành công.
+    * Restart server/poller giữa quá trình xử lý.
+8. KHÔNG thay đổi logic thanh toán, giá, wallet, Binance/USDT hoặc giao diện nếu không cần thiết cho việc sửa lỗi này.
+9. Không được chỉ báo “đã sửa”. Hãy kiểm tra code và test thực tế trước khi kết thúc.
+
+Mục tiêu cuối cùng:
+
+BOT CHÍNH:
+Payment → Processing → Purchase → Delivery → Fulfilled
+
+BOT PHỤ:
+Payment → Processing → Purchase → Delivery → Fulfilled
+
+Hai bot phải hoạt động song song, mỗi order được khóa cố định vào đúng bot đã claim order đó, không tranh order và không giao nhầm bot.
+
+Nếu phát hiện lỗi khác có thể gây mất hàng/mua trùng hàng trong cùng flow, hãy sửa luôn nhưng giữ phạm vi thay đổi tối thiểu và giải thích chính xác đã sửa gì.
