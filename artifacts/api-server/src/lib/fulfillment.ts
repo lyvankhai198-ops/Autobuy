@@ -3,11 +3,8 @@ import { logger } from "./logger";
 import { resolveBotToken, type BotOwner } from "./bot-routing";
 
 /**
- * Send a Telegram message to a customer, trying mainBotToken first.
- * If Telegram returns 403 (user never started that bot), automatically
- * falls back to secondBotToken (the English / binance bot).
- *
- * @param preferredBotToken - If set, tried first before config tokens (used for account-2 poller).
+ * Send a Telegram message through the bot that owns the order.
+ * There is intentionally no cross-bot fallback.
  */
 export async function triggerAutoFulfill(
   chatId: string,
@@ -27,7 +24,7 @@ export async function triggerAutoFulfill(
 /**
  * Send a "please wait" message + typing indicator to the customer
  * immediately after order detection, before any source API calls.
- * Tries mainBotToken first, falls back to secondBotToken.
+ * Uses only the bot that owns the order.
  */
 export async function sendWaitingMessage(
   chatId: string,
@@ -76,7 +73,7 @@ async function sendTelegramMessage(token: string, chatId: string, text: string):
 
 /**
  * Download a .txt file from the supplier and send it as a Telegram document.
- * Tries mainBotToken first, falls back to secondBotToken on 403.
+ * Uses only the bot that owns the order.
  */
 export async function sendTelegramFile(
   chatId: string,
