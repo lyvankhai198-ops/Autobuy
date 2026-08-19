@@ -29,34 +29,26 @@ export async function triggerAutoFulfill(
  * immediately after order detection, before any source API calls.
  * Tries mainBotToken first, falls back to secondBotToken.
  */
-export async function sendWaitingMessage(chatId: string, preferredBotToken?: string, lang: 'vi' | 'en' = 'vi'): Promise<void> {
+export async function sendWaitingMessage(
+  chatId: string,
+  owner: BotOwner = "account-1",
+  lang: "vi" | "en" = "vi",
+  preferredToken?: string,
+): Promise<void> {
   const config = await getConfig();
-  const tokens = [preferredBotToken, config.mainBotToken, config.secondBotToken].filter(Boolean) as string[];
-  if (tokens.length === 0) return;
+  const token = resolveBotToken(config, owner, preferredToken);
+  if (!token) return;
 
   const waitingText = lang === 'en'
     ? `⏳ Your order is being processed... Please wait a moment, we are fetching and delivering your item right here.`
     : `⏳ Đơn hàng của bạn đang được xử lý... Vui lòng chờ trong giây lát, hệ thống đang lấy hàng và gửi ngay cho bạn tại đây`;
 
-  for (const token of tokens) {
-    try {
-      // Typing indicator first (best-effort, ignore error)
-      fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, action: "typing" }),
-      }).catch(() => {});
-
-      await sendTelegramMessage(token, chatId, waitingText);
-      return; // success — done
-    } catch (err: any) {
-      const errText = String(err?.message ?? "");
-      const isForbidden = errText.includes("403") || errText.includes("chat not found") || errText.includes("blocked");
-      if (!isForbidden) return; // non-fatal, swallow
-      // 403 → try next token
-    }
-  }
-  // All failed — not critical, just log nothing (we don't want to break fulfillment)
+  fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+  }).catch(() => {});
+  await sendTelegramMessage(token, chatId, waitingText).catch(() => {});
 }
 
 async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<void> {
@@ -91,12 +83,14 @@ export async function sendTelegramFile(
   fileUrl: string,
   caption: string,
   orderCode: string,
-  preferredBotToken?: string,
+  owner: BotOwner = "account-1",
+  preferredToken?: string,
 ): Promise<void> {
   const config = await getConfig();
+  const token = resolveBotToken(config, owner, preferredToken);
 
-  if (!preferredBotToken && !config.mainBotToken && !config.secondBotToken) {
-    logger.warn("Cannot send Telegram file: no bot token configured");
+  if (!token) {
+    logger.warn({ owner }, "Cannot send Telegram file: owning bot token is not configured");
     return;
   }
 
@@ -105,23 +99,7 @@ export async function sendTelegramFile(
   if (!fileRes.ok) throw new Error(`Failed to download file from supplier: ${fileRes.status}`);
   const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
 
-  const tokens = [preferredBotToken, config.mainBotToken, config.secondBotToken].filter(Boolean) as string[];
-
-  let lastError: Error | null = null;
-  for (const token of tokens) {
-    try {
-      await sendTelegramDocument(token, chatId, fileBuffer, caption, orderCode);
-      return;
-    } catch (err: any) {
-      lastError = err;
-      const errText = String(err?.message ?? "");
-      const isForbidden = errText.includes("403") || errText.includes("chat not found") || errText.includes("blocked");
-      if (!isForbidden) throw err;
-      logger.warn({ chatId, errText }, "Bot token failed for file delivery, trying next token");
-    }
-  }
-
-  throw lastError ?? new Error("All bot tokens failed to deliver file");
+  await sendTelegramDocument(token, chatId, fileBuffer, caption, orderCode);
 }
 
 async function sendTelegramDocument(
