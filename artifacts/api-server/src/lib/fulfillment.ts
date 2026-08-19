@@ -9,33 +9,19 @@ import { resolveBotToken, type BotOwner } from "./bot-routing";
  *
  * @param preferredBotToken - If set, tried first before config tokens (used for account-2 poller).
  */
-export async function triggerAutoFulfill(chatId: string, productDetails: string, preferredBotToken?: string): Promise<void> {
+export async function triggerAutoFulfill(
+  chatId: string,
+  productDetails: string,
+  owner: BotOwner = "account-1",
+  preferredToken?: string,
+): Promise<void> {
   const config = await getConfig();
-
-  if (!preferredBotToken && !config.mainBotToken && !config.secondBotToken) {
-    logger.warn("Cannot send Telegram message: no bot token configured");
+  const token = resolveBotToken(config, owner, preferredToken);
+  if (!token) {
+    logger.warn({ owner }, "Cannot send Telegram message: owning bot token is not configured");
     return;
   }
-
-  const tokens = [preferredBotToken, config.mainBotToken, config.secondBotToken].filter(Boolean) as string[];
-
-  let lastError: Error | null = null;
-  for (const token of tokens) {
-    try {
-      await sendTelegramMessage(token, chatId, productDetails);
-      return; // success — stop trying
-    } catch (err: any) {
-      lastError = err;
-      // 403 = user blocked bot or never started it → try next token
-      // 400 with "chat not found" = same situation
-      const errText = String(err?.message ?? "");
-      const isForbidden = errText.includes("403") || errText.includes("chat not found") || errText.includes("blocked");
-      if (!isForbidden) throw err; // non-recoverable error, rethrow immediately
-      logger.warn({ chatId, errText }, "Bot token failed (user not in this bot), trying next token");
-    }
-  }
-
-  throw lastError ?? new Error("All bot tokens failed to deliver message");
+  await sendTelegramMessage(token, chatId, productDetails);
 }
 
 /**
