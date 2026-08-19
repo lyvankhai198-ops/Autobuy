@@ -38,3 +38,18 @@ Middleware automation: receives Telegram orders → buys from Canboso supplier �
 ## Config hot-reload
 - Canboso credentials can be changed via dashboard → `saveConfig` → `setDefaultCanbosoCredentials()` (no restart needed)
 - Market poller interval can be changed via dashboard → `restartMarketPoller(newIntervalMs)`
+
+## OpenAPI / Config type gotcha (fixed Aug 2026)
+- Config response fields `secondBotTokenSet`, `maintenanceMode`, `canbosoUsername`, `canbosoPasswordSet`, `marketSyncIntervalMs` were missing from the OpenAPI spec
+- ConfigInput was also missing `secondBotToken`, `maintenanceMode`, `canbosoUsername`, `canbosoPassword`, `marketSyncIntervalMs`
+- Solution: add all fields to openapi.yaml then run `pnpm --filter @workspace/api-spec run codegen`
+- The config route (routes/config.ts) manually handles extra fields via `extras` object for fields not in generated schema — whenever adding new DB config fields, add them to BOTH openapi.yaml AND the extras extraction block in routes/config.ts
+
+## TypeScript TS7030 pattern in Express routes
+- Routes using `return res.status(400).json(...)` inside `try` blocks cause TS7030 ("Not all code paths return a value")
+- Fix: `res.status(400).json(...); return;` pattern instead of `return res.status(400).json(...)`
+
+## VPS deploy — dashboard copy
+- `cp -r dist/public/. /var/www/...` pattern fails with "Permission denied" on VPS
+- Fix: copy with explicit file patterns (cp assets/, cp *.html, etc.) or use rsync if available
+- Or use heredoc SSH with `bash << 'REMOTE'` for complex multi-step remote commands
