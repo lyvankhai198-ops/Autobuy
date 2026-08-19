@@ -95,7 +95,7 @@ export default function Market() {
   const [emoji, setEmoji] = useState("");
   const [keywords, setKeywords] = useState("");
   const [excludeKeywords, setExcludeKeywords] = useState("");
-  const [markupType, setMarkupType] = useState<"fixed" | "percent">("fixed");
+  const [markupType, setMarkupType] = useState<"fixed" | "percent" | "tiered">("fixed");
   const [markupValue, setMarkupValue] = useState("5000");
   const [minStock, setMinStock] = useState("1");
   const [showForm, setShowForm] = useState(false);

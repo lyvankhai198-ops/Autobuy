@@ -25,7 +25,8 @@ router.get("/mappings/source-products", async (_req, res) => {
   try {
     const config = await getConfig();
     if (!config.sourceBotApiUrl || !config.sourceBotApiKey) {
-      return res.status(400).json({ error: "Source API not configured" });
+      res.status(400).json({ error: "Source API not configured" });
+      return;
     }
     const products = await fetchProducts(config.sourceBotApiUrl, config.sourceBotApiKey);
     res.json({ products });
@@ -50,7 +51,8 @@ router.post("/mappings", async (req, res) => {
   try {
     const parsed = insertMappingSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Dữ liệu không hợp lệ", details: parsed.error.issues });
+      res.status(400).json({ error: "Dữ liệu không hợp lệ", details: parsed.error.issues });
+      return;
     }
     const [mapping] = await db
       .insert(productMappingsTable)
@@ -69,17 +71,18 @@ router.post("/mappings", async (req, res) => {
 router.put("/mappings/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: "ID không hợp lệ" });
+    if (!id) { res.status(400).json({ error: "ID không hợp lệ" }); return; }
     const partial = insertMappingSchema.partial().safeParse(req.body);
     if (!partial.success) {
-      return res.status(400).json({ error: "Dữ liệu không hợp lệ" });
+      res.status(400).json({ error: "Dữ liệu không hợp lệ" });
+      return;
     }
     const [updated] = await db
       .update(productMappingsTable)
       .set(partial.data)
       .where(eq(productMappingsTable.id, id))
       .returning();
-    if (!updated) return res.status(404).json({ error: "Không tìm thấy" });
+    if (!updated) { res.status(404).json({ error: "Không tìm thấy" }); return; }
     res.json({ mapping: updated });
   } catch (err: any) {
     res.status(500).json({ error: err?.message });
@@ -90,7 +93,7 @@ router.put("/mappings/:id", async (req, res) => {
 router.delete("/mappings/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: "ID không hợp lệ" });
+    if (!id) { res.status(400).json({ error: "ID không hợp lệ" }); return; }
     await db.delete(productMappingsTable).where(eq(productMappingsTable.id, id));
     res.json({ ok: true });
   } catch (err: any) {

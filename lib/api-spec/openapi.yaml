@@ -291,9 +291,11 @@ components:
 
     Config:
       type: object
-      required: [mainBotTokenSet, sourceBotApiUrlSet, sourceBotApiKeySet, webhookUrl, autoFulfill]
+      required: [mainBotTokenSet, secondBotTokenSet, sourceBotApiUrlSet, sourceBotApiKeySet, webhookUrl, autoFulfill, maintenanceMode, canbosoPasswordSet]
       properties:
         mainBotTokenSet:
+          type: boolean
+        secondBotTokenSet:
           type: boolean
         sourceBotApiUrlSet:
           type: boolean
@@ -314,11 +316,25 @@ components:
         lowBalanceThreshold:
           type: ["number", "null"]
           description: Balance threshold (VND) below which a low-balance warning is sent to admin
+        marketSyncIntervalMs:
+          type: number
+          description: Market poller scan interval in milliseconds
+        maintenanceMode:
+          type: boolean
+          description: When true, poller skips auto-processing and drains orders to manual status
+        canbosoUsername:
+          type: ["string", "null"]
+          description: Canboso account username (displayed, not the password)
+        canbosoPasswordSet:
+          type: boolean
+          description: Whether a Canboso password is configured
 
     ConfigInput:
       type: object
       properties:
         mainBotToken:
+          type: ["string", "null"]
+        secondBotToken:
           type: ["string", "null"]
         sourceBotApiUrl:
           type: ["string", "null"]
@@ -337,6 +353,18 @@ components:
         lowBalanceThreshold:
           type: ["number", "null"]
           description: Balance threshold (VND) below which a low-balance warning is sent to admin
+        marketSyncIntervalMs:
+          type: ["number", "null"]
+          description: Market poller scan interval in milliseconds
+        maintenanceMode:
+          type: boolean
+          description: When true, poller skips auto-processing
+        canbosoUsername:
+          type: ["string", "null"]
+          description: Canboso account username
+        canbosoPassword:
+          type: ["string", "null"]
+          description: Canboso account password (write-only, never returned)
 
     WebhookSetupResult:
       type: object

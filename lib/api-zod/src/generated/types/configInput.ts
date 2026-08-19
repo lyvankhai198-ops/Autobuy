@@ -10,6 +10,8 @@ export interface ConfigInput {
   /** @nullable */
   mainBotToken?: string | null;
   /** @nullable */
+  secondBotToken?: string | null;
+  /** @nullable */
   sourceBotApiUrl?: string | null;
   /** @nullable */
   sourceBotApiKey?: string | null;
@@ -32,13 +34,20 @@ export interface ConfigInput {
      */
   lowBalanceThreshold?: number | null;
   /**
-     * Telegram channel/group ID to verify membership (@username or -100xxx)
+     * Market poller scan interval in milliseconds
      * @nullable
      */
-  communityChannelId?: string | null;
+  marketSyncIntervalMs?: number | null;
+  /** When true, poller skips auto-processing */
+  maintenanceMode?: boolean;
   /**
-     * Invite link shown on the join prompt button
+     * Canboso account username
      * @nullable
      */
-  communityChannelLink?: string | null;
+  canbosoUsername?: string | null;
+  /**
+     * Canboso account password (write-only, never returned)
+     * @nullable
+     */
+  canbosoPassword?: string | null;
 }

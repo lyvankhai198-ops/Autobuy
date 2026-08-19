@@ -34,7 +34,8 @@ router.post("/market-watches", async (req, res) => {
   try {
     const parsed = insertMarketWatchSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Dữ liệu không hợp lệ", details: parsed.error.issues });
+      res.status(400).json({ error: "Dữ liệu không hợp lệ", details: parsed.error.issues });
+      return;
     }
     const [watch] = await db.insert(marketWatchesTable).values(parsed.data).returning();
     res.status(201).json({ watch });
@@ -48,13 +49,13 @@ router.post("/market-watches", async (req, res) => {
 router.put("/market-watches/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: "ID không hợp lệ" });
+    if (!id) { res.status(400).json({ error: "ID không hợp lệ" }); return; }
 
     const partial = insertMarketWatchSchema.partial().safeParse(req.body);
-    if (!partial.success) return res.status(400).json({ error: "Dữ liệu không hợp lệ" });
+    if (!partial.success) { res.status(400).json({ error: "Dữ liệu không hợp lệ" }); return; }
 
     const [updated] = await db.update(marketWatchesTable).set(partial.data).where(eq(marketWatchesTable.id, id)).returning();
-    if (!updated) return res.status(404).json({ error: "Không tìm thấy" });
+    if (!updated) { res.status(404).json({ error: "Không tìm thấy" }); return; }
     res.json({ watch: updated });
   } catch (err: any) {
     res.status(500).json({ error: err?.message });
@@ -66,10 +67,10 @@ router.put("/market-watches/:id", async (req, res) => {
 router.delete("/market-watches/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: "ID không hợp lệ" });
+    if (!id) { res.status(400).json({ error: "ID không hợp lệ" }); return; }
 
     const [watch] = await db.select().from(marketWatchesTable).where(eq(marketWatchesTable.id, id)).limit(1);
-    if (!watch) return res.status(404).json({ error: "Không tìm thấy" });
+    if (!watch) { res.status(404).json({ error: "Không tìm thấy" }); return; }
 
     // Unpull our seller product before deleting the watch
     if (watch.currentSellerProductId) {
@@ -198,7 +199,8 @@ router.post("/market-watches/cleanup", async (req, res) => {
   try {
     const { ids } = req.body as { ids: string[] };
     if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ ok: false, message: "Không có sản phẩm nào được chọn." });
+      res.status(400).json({ ok: false, message: "Không có sản phẩm nào được chọn." });
+      return;
     }
 
     const deleted: string[] = [];
@@ -236,7 +238,7 @@ router.post("/market-watches/scan-now", async (_req, res) => {
 
 router.post("/market-watches/:id/scan", async (req, res) => {
   const id = Number(req.params.id);
-  if (!id) return res.status(400).json({ ok: false, message: "ID không hợp lệ" });
+  if (!id) { res.status(400).json({ ok: false, message: "ID không hợp lệ" }); return; }
   // Fire-and-forget: return immediately, scan runs in background
   runMarketSyncForWatch(id).catch(() => {});
   res.json({ ok: true, message: "Đang quét, kết quả cập nhật sau vài giây…" });

@@ -54,6 +54,7 @@ export interface FulfillInput {
 
 export interface Config {
   mainBotTokenSet: boolean;
+  secondBotTokenSet: boolean;
   sourceBotApiUrlSet: boolean;
   sourceBotApiKeySet: boolean;
   /** @nullable */
@@ -73,21 +74,24 @@ export interface Config {
      * @nullable
      */
   lowBalanceThreshold?: number | null;
+  /** Market poller scan interval in milliseconds */
+  marketSyncIntervalMs?: number;
+  /** When true, poller skips auto-processing and drains orders to manual status */
+  maintenanceMode: boolean;
   /**
-     * Telegram channel/group ID to verify membership (@username or -100xxx)
+     * Canboso account username (displayed, not the password)
      * @nullable
      */
-  communityChannelId?: string | null;
-  /**
-     * Invite link shown on the join prompt button
-     * @nullable
-     */
-  communityChannelLink?: string | null;
+  canbosoUsername?: string | null;
+  /** Whether a Canboso password is configured */
+  canbosoPasswordSet: boolean;
 }
 
 export interface ConfigInput {
   /** @nullable */
   mainBotToken?: string | null;
+  /** @nullable */
+  secondBotToken?: string | null;
   /** @nullable */
   sourceBotApiUrl?: string | null;
   /** @nullable */
@@ -111,15 +115,22 @@ export interface ConfigInput {
      */
   lowBalanceThreshold?: number | null;
   /**
-     * Telegram channel/group ID to verify membership (@username or -100xxx)
+     * Market poller scan interval in milliseconds
      * @nullable
      */
-  communityChannelId?: string | null;
+  marketSyncIntervalMs?: number | null;
+  /** When true, poller skips auto-processing */
+  maintenanceMode?: boolean;
   /**
-     * Invite link shown on the join prompt button
+     * Canboso account username
      * @nullable
      */
-  communityChannelLink?: string | null;
+  canbosoUsername?: string | null;
+  /**
+     * Canboso account password (write-only, never returned)
+     * @nullable
+     */
+  canbosoPassword?: string | null;
 }
 
 export interface WebhookSetupResult {

@@ -159,6 +159,7 @@ export const ListRecentActivityResponse = zod.array(ListRecentActivityResponseIt
  */
 export const GetConfigResponse = zod.object({
   "mainBotTokenSet": zod.boolean(),
+  "secondBotTokenSet": zod.boolean(),
   "sourceBotApiUrlSet": zod.boolean(),
   "sourceBotApiKeySet": zod.boolean(),
   "webhookUrl": zod.string().nullable(),
@@ -167,8 +168,10 @@ export const GetConfigResponse = zod.object({
   "sentinelValue": zod.string().optional().describe('Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment'),
   "adminChatId": zod.string().nullish().describe('Telegram chat ID of the admin to notify on errors requiring manual intervention'),
   "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin'),
-  "communityChannelId": zod.string().nullish().describe('Telegram channel\/group ID to verify membership (@username or -100xxx)'),
-  "communityChannelLink": zod.string().nullish().describe('Invite link shown on the join prompt button')
+  "marketSyncIntervalMs": zod.number().optional().describe('Market poller scan interval in milliseconds'),
+  "maintenanceMode": zod.boolean().describe('When true, poller skips auto-processing and drains orders to manual status'),
+  "canbosoUsername": zod.string().nullish().describe('Canboso account username (displayed, not the password)'),
+  "canbosoPasswordSet": zod.boolean().describe('Whether a Canboso password is configured')
 })
 
 
@@ -177,6 +180,7 @@ export const GetConfigResponse = zod.object({
  */
 export const UpdateConfigBody = zod.object({
   "mainBotToken": zod.string().nullish(),
+  "secondBotToken": zod.string().nullish(),
   "sourceBotApiUrl": zod.string().nullish(),
   "sourceBotApiKey": zod.string().nullish(),
   "autoFulfill": zod.boolean().optional(),
@@ -184,12 +188,15 @@ export const UpdateConfigBody = zod.object({
   "sentinelValue": zod.string().nullish().describe('Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment'),
   "adminChatId": zod.string().nullish().describe('Telegram chat ID of the admin to notify on errors requiring manual intervention'),
   "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin'),
-  "communityChannelId": zod.string().nullish().describe('Telegram channel\/group ID to verify membership (@username or -100xxx)'),
-  "communityChannelLink": zod.string().nullish().describe('Invite link shown on the join prompt button')
+  "marketSyncIntervalMs": zod.number().nullish().describe('Market poller scan interval in milliseconds'),
+  "maintenanceMode": zod.boolean().optional().describe('When true, poller skips auto-processing'),
+  "canbosoUsername": zod.string().nullish().describe('Canboso account username'),
+  "canbosoPassword": zod.string().nullish().describe('Canboso account password (write-only, never returned)')
 })
 
 export const UpdateConfigResponse = zod.object({
   "mainBotTokenSet": zod.boolean(),
+  "secondBotTokenSet": zod.boolean(),
   "sourceBotApiUrlSet": zod.boolean(),
   "sourceBotApiKeySet": zod.boolean(),
   "webhookUrl": zod.string().nullable(),
@@ -198,8 +205,10 @@ export const UpdateConfigResponse = zod.object({
   "sentinelValue": zod.string().optional().describe('Sentinel dummy value canboso delivers when using its own stock — triggers real fulfillment'),
   "adminChatId": zod.string().nullish().describe('Telegram chat ID of the admin to notify on errors requiring manual intervention'),
   "lowBalanceThreshold": zod.number().nullish().describe('Balance threshold (VND) below which a low-balance warning is sent to admin'),
-  "communityChannelId": zod.string().nullish().describe('Telegram channel\/group ID to verify membership (@username or -100xxx)'),
-  "communityChannelLink": zod.string().nullish().describe('Invite link shown on the join prompt button')
+  "marketSyncIntervalMs": zod.number().optional().describe('Market poller scan interval in milliseconds'),
+  "maintenanceMode": zod.boolean().describe('When true, poller skips auto-processing and drains orders to manual status'),
+  "canbosoUsername": zod.string().nullish().describe('Canboso account username (displayed, not the password)'),
+  "canbosoPasswordSet": zod.boolean().describe('Whether a Canboso password is configured')
 })
 
 
