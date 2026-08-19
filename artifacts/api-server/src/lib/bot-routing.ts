@@ -39,7 +39,9 @@ export function orderBelongsToAccount(
     return !!productId && mappedProductIds.has(productId);
   }
   if (accountLabel === "account-2") {
-    return !!productId && !mappedProductIds.has(productId)
+    // Secondary orders can have no productId in Canboso after sentinel
+    // delivery. The sentinel code is the ownership signal in that case.
+    return (!productId || !mappedProductIds.has(productId))
       && hasKnownSentinelCode;
   }
   return false;
