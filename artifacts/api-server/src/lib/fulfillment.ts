@@ -206,6 +206,7 @@ export async function sendWaitingMessage(
 
 async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<void> {
   await sendTelegramText(token, chatId, text);
+  logger.info({ chatId }, "Product delivered to customer via Telegram");
 }
 
 async function sendTelegramText(token: string, chatId: string, text: string): Promise<TelegramMessage | null> {
@@ -228,7 +229,6 @@ async function sendTelegramText(token: string, chatId: string, text: string): Pr
     throw new Error(`Telegram API error ${response.status}: ${errorText}`);
   }
 
-  logger.info({ chatId }, "Product delivered to customer via Telegram");
   const body = await response.json().catch(() => null) as { result?: TelegramMessage } | null;
   return body?.result ?? null;
 }
