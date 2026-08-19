@@ -98,7 +98,7 @@ async function fetchTelegramWithRetry(
     } catch (err) {
       lastError = err;
       if (attempt < attempts) {
-        logger.warn({ chatId: init.body ? undefined : undefined, attempt }, "Telegram request failed temporarily; retrying");
+        logger.warn({ attempt }, "Telegram request failed temporarily; retrying");
         await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
       }
     }
