@@ -46,6 +46,7 @@ export class FulfillmentProgress {
   private timer: ReturnType<typeof setInterval> | null = null;
   private queue: Promise<void> = Promise.resolve();
   private terminal = false;
+  private cleanupTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly token: string,
@@ -77,6 +78,17 @@ export class FulfillmentProgress {
     return this.queue;
   }
 
+  resume(): void {
+    if (!this.terminal) {
+      this.start();
+      return;
+    }
+    this.terminal = false;
+    if (this.cleanupTimer) clearTimeout(this.cleanupTimer);
+    this.cleanupTimer = null;
+    this.start();
+  }
+
   finish(): Promise<void> {
     if (this.terminal) return this.queue;
     this.terminal = true;
@@ -101,7 +113,10 @@ export class FulfillmentProgress {
       .catch((err) => {
         logger.debug({ err: err?.message, chatId: this.chatId }, "Telegram progress failure update failed");
       })
-      .finally(() => activeProgress.delete(this.registryKey));
+      .finally(() => {
+        this.cleanupTimer = setTimeout(() => activeProgress.delete(this.registryKey), 10 * 60 * 1000);
+        this.cleanupTimer.unref?.();
+      });
     return this.queue;
   }
 
@@ -141,6 +156,7 @@ export async function startFulfillmentProgress(
   const registryKey = `${owner}:${chatId}:${orderKey}`;
   const existing = activeProgress.get(registryKey);
   if (existing) {
+    existing.resume();
     existing.start();
     return existing;
   }
