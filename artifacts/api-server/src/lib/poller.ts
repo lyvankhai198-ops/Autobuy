@@ -221,7 +221,7 @@ async function processPaidOrders(
     // Both pollers may see the same seller feed. Ownership is decided before
     // claiming the DB row, so account-2 cannot steal account-1's order.
     paidOrders = paid.filter((o) =>
-      orderBelongsToAccount(o.productId, accountLabel, mappedProductIds, knownCode(o), true),
+      orderBelongsToAccount(o.productId, accountLabel, mappedProductIds, knownCode(o)),
     );
 
     sentinelOrders = completed.filter((o) => {

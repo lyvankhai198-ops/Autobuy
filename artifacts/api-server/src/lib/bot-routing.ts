@@ -34,14 +34,13 @@ export function orderBelongsToAccount(
   accountLabel: string,
   mappedProductIds: ReadonlySet<string>,
   hasKnownSentinelCode: boolean,
-  allowUncodedPaidOrder = false,
 ): boolean {
   if (accountLabel === "account-1") {
     return !!productId && mappedProductIds.has(productId);
   }
   if (accountLabel === "account-2") {
     return !!productId && !mappedProductIds.has(productId)
-      && (hasKnownSentinelCode || allowUncodedPaidOrder);
+      && hasKnownSentinelCode;
   }
   return false;
 }
