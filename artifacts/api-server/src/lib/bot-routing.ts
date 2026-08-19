@@ -1,6 +1,8 @@
-import type { Config } from "@workspace/db";
-
 export type BotOwner = "account-1" | "account-2";
+type BotTokenConfig = {
+  mainBotToken: string | null;
+  secondBotToken: string | null;
+};
 
 export function toBotOwner(accountSlot: string | null | undefined): BotOwner | null {
   if (accountSlot === "account-1" || accountSlot === "account-2") return accountSlot;
@@ -12,7 +14,7 @@ export function toBotOwner(accountSlot: string | null | undefined): BotOwner | n
  * a 403 means the order was routed to the wrong bot or needs manual handling.
  */
 export function resolveBotToken(
-  config: Pick<Config, "mainBotToken" | "secondBotToken">,
+  config: BotTokenConfig,
   owner: BotOwner,
   preferredToken?: string,
 ): string | null {
