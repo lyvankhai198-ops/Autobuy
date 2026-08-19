@@ -26,6 +26,7 @@ import {
 import { getConfig } from "./config";
 import { fetchProducts, buyProduct, getBalance, formatDeliveryMessage, invalidateProductCache } from "./products";
 import { triggerAutoFulfill, sendTelegramFile, sendWaitingMessage } from "./fulfillment";
+import { orderBelongsToAccount, toBotOwner } from "./bot-routing";
 
 const POLL_INTERVAL_MS = 5_000;       // 5 seconds for <10s delivery
 const SYNC_INTERVAL_MS = 5 * 60_000; // 5 minutes for stock sync
@@ -213,9 +214,23 @@ async function processPaidOrders(
       client.getPaidOrders(100),
       client.getRecentCompletedOrders(100),
     ]);
-    paidOrders = paid;
+    const mappedProductIds = new Set(allMappings.map((m) => m.canbosoProductId));
+    const knownCode = (o: CanbosoOrder) => (o.deliveredAccounts ?? []).some(
+      (a: any) => knownCodes.has(String(a.user ?? "").trim()),
+    );
+    // Both pollers may see the same seller feed. Ownership is decided before
+    // claiming the DB row, so account-2 cannot steal account-1's order.
+    paidOrders = paid.filter((o) =>
+      orderBelongsToAccount(o.productId, accountLabel, mappedProductIds, knownCode(o)),
+    );
 
     sentinelOrders = completed.filter((o) => {
+      if (!orderBelongsToAccount(
+        o.productId,
+        accountLabel,
+        mappedProductIds,
+        knownCode(o),
+      )) return false;
       // Primary path: productId in mappings table
       if (o.productId) {
         const expectedCode = sentinelByProductId.get(o.productId);
@@ -224,9 +239,7 @@ async function processPaidOrders(
       // Fallback: deliveredAccounts contains a known code (account-2 only — guards against
       // account-1 stealing orders that belong to the secondary bot)
       if (!useCodeFallback) return false;
-      return (o.deliveredAccounts ?? []).some(
-        (a: any) => knownCodes.has(String(a.user ?? "").trim()),
-      );
+      return knownCode(o);
     });
   } catch (err: any) {
     logger.warn({ err: err?.message, accountLabel }, "Poller: failed to fetch orders");
@@ -318,6 +331,11 @@ async function processOrder(
   const orderKind = order.status === "completed" ? "sentinel-completed" : "paid";
 
   const chatId = String(order.chatId);
+  const owner = toBotOwner(accountLabel);
+  if (!owner) {
+    logger.error({ orderCode: order.orderCode, accountLabel }, "Poller: unknown account owner — refusing to fulfill");
+    return;
+  }
   // Determine language for customer-facing messages
   const lang: 'vi' | 'en' = preferredBotToken ? 'en' : 'vi';
 
@@ -347,7 +365,7 @@ async function processOrder(
 
   logger.info({ orderCode: order.orderCode, product: productLabel, kind: orderKind, accountLabel }, "Poller: new order detected — processing");
 
-  await sendWaitingMessage(chatId, preferredBotToken, lang).catch(() => {});
+  await sendWaitingMessage(chatId, owner, lang, preferredBotToken).catch(() => {});
 
   const baseUrl = config.sourceBotApiUrl.replace(/\/+$/, "");
   const apiKey = config.sourceBotApiKey;
@@ -396,8 +414,8 @@ async function processOrder(
         `⚠️ Chưa có mapping cho sản phẩm này. Vui lòng vào <b>Ánh Xạ Sản Phẩm</b> để thêm rồi giao thủ công.`;
       await triggerAutoFulfill(chatId, lang === 'en'
         ? `⏳ Your order is being processed manually. Our team will contact you shortly.`
-        : `⏳ Đơn hàng đang được xử lý thủ công, admin sẽ liên hệ sớm.`, preferredBotToken).catch(() => {});
-      await triggerAutoFulfill(config.adminChatId, adminMsg, preferredBotToken).catch(() => {});
+        : `⏳ Đơn hàng đang được xử lý thủ công, admin sẽ liên hệ sớm.`, owner, preferredBotToken).catch(() => {});
+      await triggerAutoFulfill(config.adminChatId, adminMsg, owner, preferredBotToken).catch(() => {});
       await db.update(ordersTable).set({ status: "manual", errorMessage: `Chưa có mapping: "${productLabel}"` }).where(eq(ordersTable.id, dbOrder.id));
       logger.warn({ orderCode: order.orderCode, product: productLabel }, "Poller: no mapping — marked manual");
       return;
@@ -409,6 +427,7 @@ async function processOrder(
         lang === 'en'
           ? `❌ <b>${sourceName}</b> is currently out of stock.\nPlease contact support for assistance.`
           : `❌ Sản phẩm <b>${sourceName}</b> hiện đã hết hàng.\nVui lòng liên hệ admin để được hỗ trợ.`,
+        owner,
         preferredBotToken,
       ).catch(() => {});
       await db.update(ordersTable).set({ status: "failed", errorMessage: `Hết hàng: ${sourceName}` }).where(eq(ordersTable.id, dbOrder.id));
@@ -436,6 +455,7 @@ async function processOrder(
           lang === 'en'
             ? `⏳ <b>Your order is being processed.</b>\n\nWe will deliver as soon as possible. Thank you for your patience!`
             : `⏳ <b>Đơn hàng của bạn đang được xử lý.</b>\n\nChúng tôi sẽ giao hàng sớm nhất có thể. Cảm ơn bạn đã chờ đợi!`,
+          owner,
           preferredBotToken,
         ).catch(() => {});
 
@@ -447,6 +467,7 @@ async function processOrder(
             `📦 Sản phẩm: <b>${sourceName}</b> x${qty}\n` +
             `💰 Cần: <b>${fmt(required)}đ</b> | Số dư hiện tại: <b>${fmt(balance)}đ</b>\n\n` +
             `⚠️ Số dư API nguồn không đủ. Vui lòng nạp thêm và giao hàng thủ công.`,
+            owner,
             preferredBotToken,
           ).catch(() => {});
         }
@@ -484,10 +505,10 @@ async function processOrder(
         : `✅ <b>Đơn hàng đã hoàn thành!</b>\n\n` +
           `📦 <b>Sản phẩm:</b> ${orderResult.product_name} (x${qty})\n\n` +
           `🔑 <b>Tài khoản đính kèm trong file bên dưới.</b>`;
-      await sendTelegramFile(chatId, fileUrl, caption, orderResult.order_code, preferredBotToken);
+      await sendTelegramFile(chatId, fileUrl, caption, orderResult.order_code, owner, preferredBotToken);
     } else {
       const deliveryMsg = formatDeliveryMessage(orderResult.product_name, orderResult.accounts, lang);
-      await triggerAutoFulfill(chatId, deliveryMsg, preferredBotToken);
+      await triggerAutoFulfill(chatId, deliveryMsg, owner, preferredBotToken);
     }
 
     if (config.adminChatId) {
@@ -500,7 +521,7 @@ async function processOrder(
         `👤 Khách: ${customerName}\n` +
         `📦 Sản phẩm: <b>${orderResult.product_name}</b> x${qty}\n` +
         (balanceAfter !== null ? `💰 Số dư còn lại: <b>${fmt(balanceAfter)}đ</b>` : ``);
-      await triggerAutoFulfill(config.adminChatId, adminMsg, preferredBotToken).catch(() => {});
+      await triggerAutoFulfill(config.adminChatId, adminMsg, owner, preferredBotToken).catch(() => {});
     }
 
     logger.info(
