@@ -1,0 +1,77 @@
+Được. Nên làm thanh tiến trình giả lập theo từng giai đoạn, nhưng không để nó chạy 100% trước khi API mua hàng thật hoàn tất. Nếu API lâu thì giữ ở khoảng 85–95% cho đến khi có kết quả.
+
+Đưa Replit prompt này:
+
+Hãy thêm thanh tiến trình hiển thị ngay sau message:
+
+“⏳ Your order is being processed… Please wait a moment, we are fetching and delivering your item right here.”
+
+Mục đích: giảm cảm giác khách phải chờ API mua hàng, tạo cảm giác hệ thống đang xử lý liên tục.
+
+YÊU CẦU UI:
+
+Hiển thị dạng:
+
+🔄 Đang xử lý đơn hàng…
+[████████░░░░░░░░░░] 40%
+
+Hoặc dùng emoji/Unicode phù hợp Telegram.
+
+Tiến trình nên chạy theo các giai đoạn:
+
+0–15%:
+🔍 Đang xác nhận đơn hàng…
+
+15–35%:
+🔐 Đang xác định nguồn hàng…
+
+35–65%:
+📦 Đang lấy sản phẩm…
+
+65–85%:
+⚙️ Đang xử lý sản phẩm…
+
+85–95%:
+🚚 Đang chuẩn bị giao hàng…
+
+100%:
+✅ Đã hoàn tất! Đang gửi sản phẩm…
+
+LOGIC QUAN TRỌNG:
+
+1. Đây là progress UI, không được giả mạo trạng thái nghiệp vụ trong database.
+2. Không được cho progress lên 100% nếu API mua hàng/fulfillment thực tế chưa thành công.
+3. Nếu API mua hàng phản hồi nhanh:
+    * Progress chạy bình thường đến 100%.
+    * Sau đó gửi message giao hàng như hiện tại.
+4. Nếu API mua hàng mất nhiều thời gian:
+    * Progress tăng dần đến khoảng 85–95%.
+    * Giữ ở đó cho đến khi API thực sự trả kết quả.
+    * Không reset về 0.
+5. Nếu API thất bại:
+    * Dừng progress.
+    * Hiển thị trạng thái lỗi phù hợp.
+    * Không hiển thị “Đã hoàn tất”.
+    * Không đánh dấu order fulfilled.
+6. Nếu retry:
+    * Không tạo thêm một progress riêng chồng lên progress cũ.
+    * Tiếp tục đúng state hiện tại của order.
+7. Thanh tiến trình phải được cập nhật bằng edit message Telegram thay vì gửi hàng chục message mới, để không spam chat.
+8. Tần suất update hợp lý, khoảng 1–2 giây/lần hoặc chỉ update khi phần trăm thay đổi đủ lớn.
+9. Khi giao hàng thành công:
+    * Update progress lên 100%.
+    * Hiển thị:
+        “✅ Đơn hàng đã hoàn thành!”
+    * Sau đó gửi thông tin sản phẩm theo flow hiện tại.
+10. Phải hoạt động giống nhau cho BOT CHÍNH và BOT PHỤ, không được hard-code chỉ cho một bot.
+
+QUAN TRỌNG:
+
+* Không thay đổi logic thanh toán.
+* Không thay đổi routing/accountSlot.
+* Không thay đổi API mua hàng.
+* Không thay đổi cách lấy sản phẩm.
+* Chỉ bổ sung lớp progress UI và kết nối nó với trạng thái xử lý hiện tại.
+* Giữ nguyên flow giao hàng đang hoạt động.
+
+Hãy kiểm tra code hiện tại trước khi sửa và tích hợp progress vào đúng lifecycle của order thay vì tạo một flow xử lý mới song song.
