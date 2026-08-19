@@ -71,11 +71,12 @@ router.post("/webhook/telegram", async (req, res): Promise<void> => {
       productType,
       rawMessage: text,
       status: config.autoFulfill ? "processing" : "pending",
+      accountSlot: "account-1",
     })
     .returning();
 
   if (config.autoFulfill) {
-    processOrderInBackground(order.id, chatId, text, req.log).catch(() => {});
+    processOrderInBackground(order.id, chatId, text, req.log, "account-1").catch(() => {});
   }
 });
 

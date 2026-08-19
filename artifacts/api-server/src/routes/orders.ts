@@ -12,6 +12,7 @@ import {
 import { triggerAutoFulfill } from "../lib/fulfillment";
 import { fetchProducts, matchProduct, buyProduct, formatDeliveryMessage, formatProductListMessage } from "../lib/products";
 import { logger } from "../lib/logger";
+import { toBotOwner } from "../lib/bot-routing";
 
 const router: IRouter = Router();
 
@@ -131,6 +132,12 @@ router.post("/orders/:id/fulfill", async (req, res): Promise<void> => {
     return;
   }
 
+  const owner = toBotOwner(order.accountSlot);
+  if (!owner) {
+    res.status(409).json({ error: "Đơn chưa xác định bot sở hữu — không thể giao tự động" });
+    return;
+  }
+
   const [updated] = await db
     .update(ordersTable)
     .set({
@@ -144,7 +151,7 @@ router.post("/orders/:id/fulfill", async (req, res): Promise<void> => {
 
   // Send product to customer via Telegram
   try {
-    await triggerAutoFulfill(order.customerId, body.data.productDetails);
+    await triggerAutoFulfill(order.customerId, body.data.productDetails, owner);
   } catch (err) {
     req.log.warn({ err, orderId: order.id }, "Could not send Telegram message for manual fulfillment");
   }
@@ -175,7 +182,7 @@ router.post("/orders/:id/retry", async (req, res): Promise<void> => {
     .where(eq(ordersTable.id, params.data.id))
     .returning();
 
-  processOrderInBackground(updated.id, order.customerId, order.rawMessage, req.log).catch(() => {});
+  processOrderInBackground(updated.id, order.customerId, order.rawMessage, req.log, order.accountSlot).catch(() => {});
 
   res.json(updated);
 });
@@ -202,10 +209,19 @@ export async function processOrderInBackground(
   customerId: string,
   rawMessage: string,
   log: any,
+  accountSlot: string | null = null,
 ): Promise<void> {
   try {
     const { getConfig } = await import("../lib/config");
     const config = await getConfig();
+    const owner = toBotOwner(accountSlot);
+    if (!owner) {
+      await db.update(ordersTable)
+        .set({ status: "manual", errorMessage: "Đơn chưa xác định bot sở hữu — cần xử lý thủ công" })
+        .where(eq(ordersTable.id, orderId));
+      log.warn({ orderId }, "Refusing fulfillment without a fixed bot owner");
+      return;
+    }
 
     // Validate config
     if (!config.mainBotToken) {
@@ -243,7 +259,7 @@ export async function processOrderInBackground(
       log.info({ orderId, rawMessage }, "No product matched, sending product list to customer");
 
       const listMsg = formatProductListMessage(products);
-      await triggerAutoFulfill(customerId, listMsg).catch(() => {});
+      await triggerAutoFulfill(customerId, listMsg, owner).catch(() => {});
 
       await db.update(ordersTable)
         .set({
@@ -264,7 +280,7 @@ export async function processOrderInBackground(
     // Check stock
     if (matched.stock <= 0) {
       const outMsg = `❌ Sản phẩm <b>${matched.name}</b> hiện đã hết hàng.\n\n${formatProductListMessage(products)}`;
-      await triggerAutoFulfill(customerId, outMsg).catch(() => {});
+      await triggerAutoFulfill(customerId, outMsg, owner).catch(() => {});
 
       await db.update(ordersTable)
         .set({ status: "failed", errorMessage: `Hết hàng: ${matched.name}` })
@@ -292,7 +308,7 @@ export async function processOrderInBackground(
       .where(eq(ordersTable.id, orderId));
 
     // Deliver to customer
-    await triggerAutoFulfill(customerId, deliveryMsg);
+    await triggerAutoFulfill(customerId, deliveryMsg, owner);
 
     log.info({ orderId, orderCode: orderResult.order_code }, "Order fulfilled and delivered to customer");
   } catch (err: any) {
