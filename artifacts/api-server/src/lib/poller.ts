@@ -25,7 +25,7 @@ import {
 } from "./canboso";
 import { getConfig } from "./config";
 import { fetchProducts, buyProduct, getBalance, formatDeliveryMessage, invalidateProductCache } from "./products";
-import { triggerAutoFulfill, sendTelegramFile, sendWaitingMessage } from "./fulfillment";
+import { triggerAutoFulfill, sendTelegramFile, startFulfillmentProgress } from "./fulfillment";
 import { orderBelongsToAccount, toBotOwner } from "./bot-routing";
 
 const POLL_INTERVAL_MS = 5_000;       // 5 seconds for <10s delivery
@@ -365,13 +365,22 @@ async function processOrder(
 
   logger.info({ orderCode: order.orderCode, product: productLabel, kind: orderKind, accountLabel }, "Poller: new order detected — processing");
 
-  await sendWaitingMessage(chatId, owner, lang, preferredBotToken).catch(() => {});
+  const progress = await startFulfillmentProgress(
+    chatId,
+    owner,
+    lang,
+    preferredBotToken,
+    order.orderCode,
+  ).catch(() => null);
+  await progress?.update(15, "confirming");
 
   const baseUrl = config.sourceBotApiUrl.replace(/\/+$/, "");
   const apiKey = config.sourceBotApiKey;
 
   try {
+    await progress?.update(30, "source");
     const products = await fetchProducts(baseUrl, apiKey);
+    await progress?.update(55, "fetching");
     const qty = order.finalQuantity ?? order.quantity ?? 1;
 
     let sourceProductId: string | null = null;
@@ -417,6 +426,7 @@ async function processOrder(
         : `⏳ Đơn hàng đang được xử lý thủ công, admin sẽ liên hệ sớm.`, owner, preferredBotToken).catch(() => {});
       await triggerAutoFulfill(config.adminChatId, adminMsg, owner, preferredBotToken).catch(() => {});
       await db.update(ordersTable).set({ status: "manual", errorMessage: `Chưa có mapping: "${productLabel}"` }).where(eq(ordersTable.id, dbOrder.id));
+      await progress?.fail();
       logger.warn({ orderCode: order.orderCode, product: productLabel }, "Poller: no mapping — marked manual");
       return;
     }
@@ -431,6 +441,7 @@ async function processOrder(
         preferredBotToken,
       ).catch(() => {});
       await db.update(ordersTable).set({ status: "failed", errorMessage: `Hết hàng: ${sourceName}` }).where(eq(ordersTable.id, dbOrder.id));
+      await progress?.fail();
 
       if (order.productId) {
         const mapping = await getMappingByCanbosoProductId(order.productId);
@@ -476,10 +487,15 @@ async function processOrder(
           status: "failed",
           errorMessage: `Số dư không đủ: cần ${(sourceProduct.price * qty).toLocaleString("vi-VN")}đ (x${qty})`,
         }).where(eq(ordersTable.id, dbOrder.id));
+        await progress?.fail();
         return;
       }
     }
 
+    await progress?.update(75, "processing");
+    // The source purchase can take an unpredictable amount of time. Keep the
+    // customer-facing progress below completion until the real result exists.
+    await progress?.update(90, "delivery");
     const orderResult = await buyProduct(baseUrl, apiKey, sourceProductId, qty);
 
     const fileUrl = orderResult.file_url ?? orderResult.txt_url ?? orderResult.file ?? null;
@@ -510,6 +526,7 @@ async function processOrder(
       const deliveryMsg = formatDeliveryMessage(orderResult.product_name, orderResult.accounts, lang);
       await triggerAutoFulfill(chatId, deliveryMsg, owner, preferredBotToken);
     }
+    await progress?.finish();
 
     if (config.adminChatId) {
       const fmt = (v: number) => v.toLocaleString("vi-VN");
@@ -530,6 +547,7 @@ async function processOrder(
     );
   } catch (err: any) {
     logger.error({ err: err?.message, orderCode: order.orderCode }, "Poller: fulfillment error");
+    await progress?.fail();
     await db.update(ordersTable).set({
       status: "failed",
       errorMessage: err?.message ?? "Lỗi không xác định",
