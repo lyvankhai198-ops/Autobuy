@@ -49,7 +49,7 @@ export async function sendWaitingMessage(
 }
 
 async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<void> {
-  const response = await fetch(
+  const response = await fetchTelegramWithRetry(
     `https://api.telegram.org/bot${token}/sendMessage`,
     {
       method: "POST",
@@ -69,6 +69,42 @@ async function sendTelegramMessage(token: string, chatId: string, text: string):
   }
 
   logger.info({ chatId }, "Product delivered to customer via Telegram");
+}
+
+/**
+ * Telegram occasionally returns a network-level fetch failure from the VPS.
+ * Retry only transient network/server/rate-limit failures; never retry 4xx
+ * authentication or chat-permission errors.
+ */
+async function fetchTelegramWithRetry(
+  url: string,
+  init: RequestInit,
+  attempts = 3,
+): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, init);
+      if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
+        return response;
+      }
+
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+        continue;
+      }
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) {
+        logger.warn({ chatId: init.body ? undefined : undefined, attempt }, "Telegram request failed temporarily; retrying");
+        await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Telegram request failed");
 }
 
 /**
@@ -133,7 +169,7 @@ async function sendTelegramDocument(
 
   const body = Buffer.concat(parts);
 
-  const response = await fetch(
+  const response = await fetchTelegramWithRetry(
     `https://api.telegram.org/bot${token}/sendDocument`,
     {
       method: "POST",
