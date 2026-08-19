@@ -19,8 +19,7 @@ Middleware automation: receives Telegram orders → buys from Canboso supplier �
 
 ## Delivery mechanism
 - Platform has no general "complete order" API — delivery goes via Telegram Bot directly to customer `chatId`
-- Delivery is owner-locked: account-1 uses the main bot and account-2 uses the secondary bot; there is no cross-bot fallback
-- If `sourceApiResponse` is already saved, retries must redeliver that saved purchase and never call the supplier buy endpoint again
+- Tries `mainBotToken`, then `secondBotToken` (403 fallback), then `preferredBotToken` for account-2
 
 ## Sentinel stock system
 - Sentinel accounts (e.g. user="100") in Canboso product items are "virtual" placeholders

@@ -9,52 +9,12 @@ import {
   RetryOrderParams,
   ListRecentActivityQueryParams,
 } from "@workspace/api-zod";
-import { triggerAutoFulfill, sendTelegramFile, startFulfillmentProgress, type FulfillmentProgress } from "../lib/fulfillment";
-import { fetchProducts, matchProduct, buyProduct, formatDeliveryMessage, formatProductListMessage, type BuyResult } from "../lib/products";
+import { triggerAutoFulfill } from "../lib/fulfillment";
+import { fetchProducts, matchProduct, buyProduct, formatDeliveryMessage, formatProductListMessage } from "../lib/products";
 import { logger } from "../lib/logger";
 import { toBotOwner } from "../lib/bot-routing";
 
 const router: IRouter = Router();
-
-function parseSavedPurchase(value: string | null): BuyResult | null {
-  if (!value) return null;
-  try {
-    const parsed = JSON.parse(value) as Partial<BuyResult>;
-    if (
-      typeof parsed.order_code !== "string" ||
-      typeof parsed.product_name !== "string" ||
-      !Array.isArray(parsed.accounts)
-    ) {
-      return null;
-    }
-    return parsed as BuyResult;
-  } catch {
-    return null;
-  }
-}
-
-async function deliverPurchasedResult(
-  customerId: string,
-  result: BuyResult,
-  quantity: number,
-  owner: "account-1" | "account-2",
-  lang: "vi" | "en",
-): Promise<void> {
-  const fileUrl = result.file_url ?? result.txt_url ?? result.file ?? null;
-  if (fileUrl) {
-    const caption = lang === "en"
-      ? `✅ <b>Order completed!</b>\n\n📦 <b>Product:</b> ${result.product_name} (x${quantity})\n\n🔑 <b>Your account is attached in the file below.</b>`
-      : `✅ <b>Đơn hàng đã hoàn thành!</b>\n\n📦 <b>Sản phẩm:</b> ${result.product_name} (x${quantity})\n\n🔑 <b>Tài khoản đính kèm trong file bên dưới.</b>`;
-    await sendTelegramFile(customerId, fileUrl, caption, result.order_code, owner);
-    return;
-  }
-
-  await triggerAutoFulfill(
-    customerId,
-    formatDeliveryMessage(result.product_name, result.accounts, lang),
-    owner,
-  );
-}
 
 router.get("/orders", async (req, res): Promise<void> => {
   const parsed = ListOrdersQueryParams.safeParse(req.query);
@@ -190,19 +150,9 @@ router.post("/orders/:id/fulfill", async (req, res): Promise<void> => {
     .returning();
 
   // Send product to customer via Telegram
-  const progress = await startFulfillmentProgress(
-    order.customerId,
-    owner,
-    order.accountSlot === "account-2" ? "en" : "vi",
-    undefined,
-    `manual:${order.id}`,
-  ).catch(() => null);
   try {
-    await progress?.update(90, "delivery");
     await triggerAutoFulfill(order.customerId, body.data.productDetails, owner);
-    await progress?.finish();
   } catch (err) {
-    await progress?.fail();
     req.log.warn({ err, orderId: order.id }, "Could not send Telegram message for manual fulfillment");
   }
 
@@ -261,21 +211,7 @@ export async function processOrderInBackground(
   log: any,
   accountSlot: string | null = null,
 ): Promise<void> {
-  let progress: FulfillmentProgress | null = null;
   try {
-    const [storedOrder] = await db
-      .select()
-      .from(ordersTable)
-      .where(eq(ordersTable.id, orderId));
-    if (!storedOrder) {
-      log.warn({ orderId }, "Background order not found — refusing fulfillment");
-      return;
-    }
-
-    customerId = storedOrder.customerId;
-    rawMessage = storedOrder.rawMessage;
-    accountSlot = storedOrder.accountSlot;
-
     const { getConfig } = await import("../lib/config");
     const config = await getConfig();
     const owner = toBotOwner(accountSlot);
@@ -305,60 +241,13 @@ export async function processOrderInBackground(
     const baseUrl = config.sourceBotApiUrl.replace(/\/+$/, "");
     const apiKey = config.sourceBotApiKey;
 
-    progress = await startFulfillmentProgress(
-      customerId,
-      owner,
-      accountSlot === "account-2" ? "en" : "vi",
-      undefined,
-      `order:${orderId}`,
-    ).catch(() => null);
-    await progress?.update(15, "confirming");
-
-    const savedPurchase = parseSavedPurchase(storedOrder.sourceApiResponse);
-    if (storedOrder.sourceApiResponse && !savedPurchase) {
-      await db.update(ordersTable)
-        .set({ status: "manual", errorMessage: "Kết quả mua hàng đã lưu không hợp lệ — cần kiểm tra thủ công" })
-        .where(eq(ordersTable.id, orderId));
-      await progress?.fail();
-      log.error({ orderId }, "Saved supplier response is invalid — refusing to buy again");
-      return;
-    }
-
-    if (savedPurchase) {
-      // A previous attempt already bought the item. Retry only Telegram
-      // delivery; never call the supplier purchase endpoint again.
-      await progress?.update(90, "delivery");
-      await deliverPurchasedResult(
-        customerId,
-        savedPurchase,
-        savedPurchase.quantity || 1,
-        owner,
-        accountSlot === "account-2" ? "en" : "vi",
-      );
-      await db.update(ordersTable)
-        .set({
-          status: "fulfilled",
-          productType: savedPurchase.product_name,
-          productDetails: savedPurchase.accounts.join("\n"),
-          fulfilledAt: new Date(),
-          errorMessage: null,
-        })
-        .where(eq(ordersTable.id, orderId));
-      await progress?.finish();
-      log.info({ orderId, sourceOrderCode: savedPurchase.order_code }, "Redelivered saved supplier purchase");
-      return;
-    }
-
     // Fetch product list
-    await progress?.update(30, "source");
     const products = await fetchProducts(baseUrl, apiKey);
-    await progress?.update(55, "fetching");
 
     if (products.length === 0) {
       await db.update(ordersTable)
         .set({ status: "failed", errorMessage: "Không lấy được danh sách sản phẩm từ API nguồn hàng" })
         .where(eq(ordersTable.id, orderId));
-      await progress?.fail();
       return;
     }
 
@@ -378,12 +267,10 @@ export async function processOrderInBackground(
           errorMessage: `Không nhận dạng được sản phẩm từ tin nhắn: "${rawMessage}". Đã gửi danh sách sản phẩm cho khách.`,
         })
         .where(eq(ordersTable.id, orderId));
-      await progress?.fail();
       return;
     }
 
     log.info({ orderId, productId: matched.id, productName: matched.name }, "Product matched, calling supplier API");
-    await progress?.update(75, "processing");
 
     // Update product type in DB
     await db.update(ordersTable)
@@ -398,12 +285,10 @@ export async function processOrderInBackground(
       await db.update(ordersTable)
         .set({ status: "failed", errorMessage: `Hết hàng: ${matched.name}` })
         .where(eq(ordersTable.id, orderId));
-      await progress?.fail();
       return;
     }
 
     // Call supplier API
-    await progress?.update(90, "delivery");
     const orderResult = await buyProduct(baseUrl, apiKey, matched.id, 1);
 
     // Format delivery message
@@ -424,12 +309,10 @@ export async function processOrderInBackground(
 
     // Deliver to customer
     await triggerAutoFulfill(customerId, deliveryMsg, owner);
-    await progress?.finish();
 
     log.info({ orderId, orderCode: orderResult.order_code }, "Order fulfilled and delivered to customer");
   } catch (err: any) {
     log.error({ err, orderId }, "Background order processing failed");
-    await progress?.fail();
     await db.update(ordersTable)
       .set({ status: "failed", errorMessage: err?.message ?? "Lỗi không xác định" })
       .where(eq(ordersTable.id, orderId))
