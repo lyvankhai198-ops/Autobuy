@@ -32,6 +32,7 @@ export function resolveBotToken(
 export function orderBelongsToAccount(
   productId: string | undefined,
   productName: string | undefined,
+  amountUsd: number | undefined,
   accountLabel: string,
   mappedProductIds: ReadonlySet<string>,
   mappedProductNames: readonly string[],
@@ -45,6 +46,7 @@ export function orderBelongsToAccount(
     .trim();
   const normalizedOrderName = normalize(productName ?? "");
   const isSecondaryLanguage = /\b(days|months|hours)\b/i.test(productName ?? "");
+  const isSecondaryCurrency = typeof amountUsd === "number" && amountUsd > 0;
   const nameMatches = mappedProductNames.some((mappedName) => {
     const mappedTokens = normalize(mappedName).split(/\s+/).filter((token) => token.length >= 3);
     const matched = mappedTokens.filter((token) => normalizedOrderName.includes(token));
@@ -55,12 +57,12 @@ export function orderBelongsToAccount(
   const belongsToMainProduct = (!!productId && mappedProductIds.has(productId)) || nameMatches;
 
   if (accountLabel === "account-1") {
-    return belongsToMainProduct && !isSecondaryLanguage;
+    return belongsToMainProduct && !isSecondaryLanguage && !isSecondaryCurrency;
   }
   if (accountLabel === "account-2") {
     // Secondary orders can have no productId in Canboso after sentinel
     // delivery. The sentinel code is the ownership signal in that case.
-    return (isSecondaryLanguage || !belongsToMainProduct)
+    return (isSecondaryCurrency || isSecondaryLanguage || !belongsToMainProduct)
       && hasKnownSentinelCode;
   }
   return false;

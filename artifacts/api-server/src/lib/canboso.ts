@@ -16,6 +16,7 @@ export interface CanbosoOrder {
   chatId: number;
   chatName?: string;
   amount: number;
+  amountUsd?: number;
   quantity: number;
   finalQuantity: number;
   status: "pending" | "paid" | "completed" | "cancelled";

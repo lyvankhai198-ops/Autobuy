@@ -225,6 +225,7 @@ async function processPaidOrders(
       orderBelongsToAccount(
         o.productId,
         o.displayProductType ?? o.productType,
+        o.amountUsd,
         accountLabel,
         mappedProductIds,
         mappedProductNames,
@@ -236,6 +237,7 @@ async function processPaidOrders(
       if (!orderBelongsToAccount(
         o.productId,
         o.displayProductType ?? o.productType,
+        o.amountUsd,
         accountLabel,
         mappedProductIds,
         mappedProductNames,
