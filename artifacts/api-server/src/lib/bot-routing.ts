@@ -44,6 +44,7 @@ export function orderBelongsToAccount(
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
   const normalizedOrderName = normalize(productName ?? "");
+  const isSecondaryLanguage = /\b(days|months|hours)\b/i.test(productName ?? "");
   const nameMatches = mappedProductNames.some((mappedName) => {
     const mappedTokens = normalize(mappedName).split(/\s+/).filter((token) => token.length >= 3);
     const matched = mappedTokens.filter((token) => normalizedOrderName.includes(token));
@@ -54,12 +55,12 @@ export function orderBelongsToAccount(
   const belongsToMainProduct = (!!productId && mappedProductIds.has(productId)) || nameMatches;
 
   if (accountLabel === "account-1") {
-    return belongsToMainProduct;
+    return belongsToMainProduct && !isSecondaryLanguage;
   }
   if (accountLabel === "account-2") {
     // Secondary orders can have no productId in Canboso after sentinel
     // delivery. The sentinel code is the ownership signal in that case.
-    return !belongsToMainProduct
+    return (isSecondaryLanguage || !belongsToMainProduct)
       && hasKnownSentinelCode;
   }
   return false;

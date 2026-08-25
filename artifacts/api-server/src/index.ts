@@ -45,7 +45,7 @@ app.listen(port, (err) => {
   const sameCanbosoAccount = !!u2 && !!p2
     && u2 === process.env["CANBOSO_USERNAME"]
     && p2 === process.env["CANBOSO_PASSWORD"];
-  if (u2 && p2 && t2 && !sameCanbosoAccount) {
+  if (u2 && p2 && t2) {
     const client2 = new CanbosoClient(u2, p2);
     startPoller({
       client: client2,
@@ -54,9 +54,11 @@ app.listen(port, (err) => {
       runSync: false,
       useCodeFallback: true, // account-2 products share same Canboso account but have different productIds
     });
-    logger.info("Account-2 poller started");
-  } else if (sameCanbosoAccount) {
-    logger.warn("Account-2 poller disabled: CANBOSO2 credentials match account-1; refusing duplicate order polling");
+    logger.warn(
+      sameCanbosoAccount
+        ? "Account-2 poller started with shared Canboso credentials; ownership is restricted by product language/sentinel"
+        : "Account-2 poller started",
+    );
   } else if (u2 || p2 || t2) {
     logger.warn("Account-2 poller not started: CANBOSO2_USERNAME, CANBOSO2_PASSWORD, and CANBOSO2_BOT_TOKEN are all required");
   }
