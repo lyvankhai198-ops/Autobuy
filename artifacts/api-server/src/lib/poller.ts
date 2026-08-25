@@ -316,6 +316,23 @@ async function getMappingByCanbosoProductId(canbosoProductId: string) {
   return mapping ?? null;
 }
 
+async function getMappingByCanbosoProductName(productName: string) {
+  const normalize = (value: string) => value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const normalizedOrderName = normalize(productName);
+  const mappings = await db.select().from(productMappingsTable);
+  return mappings.find((mapping) => {
+    const tokens = normalize(mapping.canbosoProductName)
+      .split(/\s+/)
+      .filter((token) => token.length >= 3);
+    return tokens.filter((token) => normalizedOrderName.includes(token)).length >= 2;
+  }) ?? null;
+}
+
 /** Returns true if this Canboso product is managed by a market_watch rule. */
 async function isMarketWatchProduct(canbosoProductId: string): Promise<boolean> {
   const [row] = await db
@@ -400,6 +417,14 @@ async function processOrder(
         sourceProductId = mapping.sourceProductId;
         sourceName = mapping.sourceProductName;
         logger.info({ orderCode: order.orderCode, via: "mapping", code: mapping.code }, "Matched via mapping table");
+      }
+    }
+    if (!sourceProductId) {
+      const mapping = await getMappingByCanbosoProductName(productLabel);
+      if (mapping) {
+        sourceProductId = mapping.sourceProductId;
+        sourceName = mapping.sourceProductName;
+        logger.info({ orderCode: order.orderCode, via: "product-name", code: mapping.code }, "Matched via normalized product name");
       }
     }
 
