@@ -4,3 +4,4 @@
 - [Multi-account Canboso poller](multi-account-poller.md) — CanbosoClient class per account, cross-account sentinel detection via code fallback, CANBOSO2_* env vars
 - [VPS deploy workflow](vps-deploy.md) — 3 projects isolated on VPS; autoorder-api.service port 3003; bot-api.service port 3002; checkgpt pm2 port 3001
 - [VPS tenant_id DB constraint](tenant-id-vps-constraint.md) — ⚠️ CRITICAL: 4 prod tables have tenant_id NOT NULL DEFAULT 1; never drop or reset; losing DEFAULT breaks account-2 orders silently
+- [Shared Canboso bot routing](shared-canboso-routing.md) — when both bots share a seller, route by the order's currency signal and never fall back across bot tokens
