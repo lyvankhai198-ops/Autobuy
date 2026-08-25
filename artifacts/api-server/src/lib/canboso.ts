@@ -63,6 +63,7 @@ export class CanbosoClient {
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private accessTokenExpiresAt = 0;
+  private authInFlight: Promise<string> | null = null;
 
   constructor(private readonly username: string, private readonly password: string) {}
 
@@ -104,10 +105,25 @@ export class CanbosoClient {
   }
 
   private async ensureAuth(): Promise<string> {
-    if (!this.accessToken || Date.now() >= this.accessTokenExpiresAt - 5 * 60 * 1000) {
-      if (!(await this.tryRefresh())) await this.login();
+    if (this.accessToken && Date.now() < this.accessTokenExpiresAt - 5 * 60 * 1000) {
+      return this.accessToken;
     }
-    return this.accessToken!;
+    // getPaidOrders and getRecentCompletedOrders run in parallel. Serialize
+    // authentication so concurrent calls cannot overwrite each other's
+    // refresh/access token pair and make the following request fail.
+    if (this.authInFlight) return this.authInFlight;
+    this.authInFlight = (async () => {
+      if (this.accessToken && Date.now() < this.accessTokenExpiresAt - 5 * 60 * 1000) {
+        return this.accessToken;
+      }
+      if (!(await this.tryRefresh())) await this.login();
+      return this.accessToken!;
+    })();
+    try {
+      return await this.authInFlight;
+    } finally {
+      this.authInFlight = null;
+    }
   }
 
   async apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
