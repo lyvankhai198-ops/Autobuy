@@ -215,20 +215,30 @@ async function processPaidOrders(
       client.getRecentCompletedOrders(100),
     ]);
     const mappedProductIds = new Set(allMappings.map((m) => m.canbosoProductId));
+    const mappedProductNames = allMappings.map((m) => m.canbosoProductName);
     const knownCode = (o: CanbosoOrder) => (o.deliveredAccounts ?? []).some(
       (a: any) => knownCodes.has(String(a.user ?? "").trim()),
     );
     // Both pollers may see the same seller feed. Ownership is decided before
     // claiming the DB row, so account-2 cannot steal account-1's order.
     paidOrders = paid.filter((o) =>
-      orderBelongsToAccount(o.productId, accountLabel, mappedProductIds, knownCode(o)),
+      orderBelongsToAccount(
+        o.productId,
+        o.displayProductType ?? o.productType,
+        accountLabel,
+        mappedProductIds,
+        mappedProductNames,
+        knownCode(o),
+      ),
     );
 
     sentinelOrders = completed.filter((o) => {
       if (!orderBelongsToAccount(
         o.productId,
+        o.displayProductType ?? o.productType,
         accountLabel,
         mappedProductIds,
+        mappedProductNames,
         knownCode(o),
       )) return false;
       // Primary path: productId in mappings table
