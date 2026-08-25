@@ -369,6 +369,7 @@ async function processOrder(
 
   const baseUrl = config.sourceBotApiUrl.replace(/\/+$/, "");
   const apiKey = config.sourceBotApiKey;
+  let sourcePurchasePersisted = false;
 
   try {
     const products = await fetchProducts(baseUrl, apiKey);
@@ -481,6 +482,7 @@ async function processOrder(
     }
 
     const orderResult = await buyProduct(baseUrl, apiKey, sourceProductId, qty);
+    sourcePurchasePersisted = true;
 
     const fileUrl = orderResult.file_url ?? orderResult.txt_url ?? orderResult.file ?? null;
     const isFileDelivery = !!fileUrl || orderResult.accounts.length === 0;
@@ -490,11 +492,10 @@ async function processOrder(
       : orderResult.accounts.join("\n");
 
     await db.update(ordersTable).set({
-      status: "fulfilled",
+      status: "delivering",
       productType: orderResult.product_name,
       productDetails,
       sourceApiResponse: JSON.stringify(orderResult),
-      fulfilledAt: new Date(),
     }).where(eq(ordersTable.id, dbOrder.id));
 
     if (isFileDelivery && fileUrl) {
@@ -531,7 +532,7 @@ async function processOrder(
   } catch (err: any) {
     logger.error({ err: err?.message, orderCode: order.orderCode }, "Poller: fulfillment error");
     await db.update(ordersTable).set({
-      status: "failed",
+      status: sourcePurchasePersisted ? "delivery_failed" : "failed",
       errorMessage: err?.message ?? "Lỗi không xác định",
     }).where(eq(ordersTable.id, dbOrder.id)).catch(() => {});
   }

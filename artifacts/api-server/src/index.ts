@@ -42,16 +42,18 @@ app.listen(port, (err) => {
   const u2 = process.env["CANBOSO2_USERNAME"];
   const p2 = process.env["CANBOSO2_PASSWORD"];
   const t2 = process.env["CANBOSO2_BOT_TOKEN"];
-  if (u2 && p2) {
+  if (u2 && p2 && t2) {
     const client2 = new CanbosoClient(u2, p2);
     startPoller({
       client: client2,
-      preferredBotToken: t2 ?? undefined,
+      preferredBotToken: t2,
       accountLabel: "account-2",
       runSync: false,
       useCodeFallback: true, // account-2 products share same Canboso account but have different productIds
     });
     logger.info("Account-2 poller started");
+  } else if (u2 || p2 || t2) {
+    logger.warn("Account-2 poller not started: CANBOSO2_USERNAME, CANBOSO2_PASSWORD, and CANBOSO2_BOT_TOKEN are all required");
   }
 
   startMarketPoller().catch((err) => logger.error({ err }, "Failed to start market poller"));
