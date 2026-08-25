@@ -246,6 +246,12 @@ async function processPaidOrders(
         const expectedCode = sentinelByProductId.get(o.productId);
         if (expectedCode && isSentinelDelivery(o, expectedCode)) return true;
       }
+      // When Canboso returns a different product ID for the same mapped
+      // product, account-1 can still identify its own completed order by the
+      // mapped product name and the sentinel code (e.g. MS2). This is needed
+      // when account-2 is disabled because both environment credentials are
+      // the same seller account.
+      if (accountLabel === "account-1" && knownCode(o)) return true;
       // Fallback: deliveredAccounts contains a known code (account-2 only — guards against
       // account-1 stealing orders that belong to the secondary bot)
       if (!useCodeFallback) return false;
