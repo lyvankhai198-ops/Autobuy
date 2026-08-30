@@ -212,6 +212,23 @@ export async function processOrderInBackground(
   accountSlot: string | null = null,
 ): Promise<void> {
   try {
+    const [storedOrder] = await db
+      .select({ productType: ordersTable.productType })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+    const slotText = `${storedOrder?.productType ?? ""} ${rawMessage}`;
+    if (/\bslot\b/i.test(slotText)) {
+      await db.update(ordersTable)
+        .set({
+          status: "manual",
+          errorMessage: "Canboso slot product — blocked from external supplier purchase",
+        })
+        .where(eq(ordersTable.id, orderId));
+      log.warn({ orderId }, "Refusing external fulfillment for Canboso slot product");
+      return;
+    }
+
     const { getConfig } = await import("../lib/config");
     const config = await getConfig();
     const owner = toBotOwner(accountSlot);
