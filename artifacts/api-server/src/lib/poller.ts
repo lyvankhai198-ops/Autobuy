@@ -448,21 +448,16 @@ async function processOrder(
         logger.info({ orderCode: order.orderCode, via: "mapping", code: mapping.code }, "Matched via mapping table");
       }
     }
-    if (!sourceProductId) {
-      const mapping = await getMappingByCanbosoProductName(productLabel);
-      if (mapping) {
-        sourceProductId = mapping.sourceProductId;
-        sourceName = mapping.sourceProductName;
-        logger.info({ orderCode: order.orderCode, via: "product-name", code: mapping.code }, "Matched via normalized product name");
-      }
-    }
 
-    // Fallback for cross-account sentinel orders (account-2 only): productId not in mappings
-    // but deliveredAccounts contains a known sentinel code (e.g. "MS3").
-    // Guard: account-1 must never use this path or it will steal account-2's orders.
-    if (useCodeFallback && !sourceProductId && order.deliveredAccounts?.length > 0) {
-      const sentinelCode = String(order.deliveredAccounts[0].user ?? "").trim();
-      if (sentinelCode) {
+    // A completed Canboso order may expose a different product ID than the
+    // one stored in our mapping table. Its sentinel account code is the
+    // authoritative mapping in that case (MS1/MS2/etc.). Use it before any
+    // fuzzy name matching so a slot product cannot become a Gemini link.
+    if (!sourceProductId && order.deliveredAccounts?.length > 0) {
+      const sentinelCodes = order.deliveredAccounts
+        .map((account: any) => String(account.user ?? "").trim())
+        .filter(Boolean);
+      for (const sentinelCode of sentinelCodes) {
         const [mappingByCode] = await db
           .select()
           .from(productMappingsTable)
@@ -471,8 +466,21 @@ async function processOrder(
         if (mappingByCode) {
           sourceProductId = mappingByCode.sourceProductId;
           sourceName = mappingByCode.sourceProductName;
-          logger.info({ orderCode: order.orderCode, via: "sentinel-code", code: sentinelCode }, "Matched via sentinel code fallback");
+          logger.info({ orderCode: order.orderCode, via: "sentinel-code", code: sentinelCode }, "Matched via sentinel code");
+          break;
         }
+      }
+    }
+
+    // Name matching is only safe when Canboso did not provide a product ID.
+    // If an unknown product ID exists, guessing by overlapping words can map
+    // an unrelated slot product to an external supplier product.
+    if (!sourceProductId && !order.productId) {
+      const mapping = await getMappingByCanbosoProductName(productLabel);
+      if (mapping) {
+        sourceProductId = mapping.sourceProductId;
+        sourceName = mapping.sourceProductName;
+        logger.info({ orderCode: order.orderCode, via: "product-name", code: mapping.code }, "Matched via normalized product name");
       }
     }
 
