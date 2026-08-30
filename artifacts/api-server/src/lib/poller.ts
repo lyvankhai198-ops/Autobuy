@@ -335,6 +335,12 @@ async function getMappingByCanbosoProductName(productName: string) {
   }) ?? null;
 }
 
+function isCanbosoSlotOrder(order: CanbosoOrder, productLabel: string): boolean {
+  return order.isSlotReseller === true
+    || String(order.slotProductType ?? "").toLowerCase() === "slot"
+    || /\bslot\b/i.test(productLabel);
+}
+
 /** Returns true if this Canboso product is managed by a market_watch rule. */
 async function isMarketWatchProduct(canbosoProductId: string): Promise<boolean> {
   const [row] = await db
@@ -364,6 +370,27 @@ async function processOrder(
 
   const productLabel = order.displayProductType ?? order.productType;
   const orderKind = order.status === "completed" ? "sentinel-completed" : "paid";
+
+  // Slot products are fulfilled/managed inside Canboso. They must never be
+  // matched to an external supplier mapping (e.g. a slot Gemini product
+  // must not match the external Gemini Pro 18-month link product).
+  if (isCanbosoSlotOrder(order, productLabel)) {
+    await db.insert(ordersTable).values({
+      customerId: String(order.chatId),
+      customerUsername: order.chatName?.replace("@", "") ?? null,
+      productType: productLabel,
+      rawMessage: `[canboso:${accountLabel ?? "1"}] ${order.orderCode} — ${productLabel} x${order.finalQuantity}`,
+      status: "manual",
+      canbosoOrderCode: order.orderCode,
+      accountSlot: accountLabel ?? null,
+      errorMessage: "Canboso slot product — not mapped to external supplier",
+    }).onConflictDoNothing();
+    logger.warn(
+      { orderCode: order.orderCode, product: productLabel, accountLabel },
+      "Poller: skipped Canboso slot product; external purchase blocked",
+    );
+    return;
+  }
 
   const chatId = String(order.chatId);
   const owner = toBotOwner(accountLabel);

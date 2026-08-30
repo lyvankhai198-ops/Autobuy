@@ -23,6 +23,8 @@ export interface CanbosoOrder {
   productType: string;
   displayProductType?: string;
   productId?: string;
+  isSlotReseller?: boolean;
+  slotProductType?: string;
   paidAt?: string;
   createdAt: string;
   deliveredAccounts: any[];
