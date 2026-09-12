@@ -85,7 +85,9 @@ async function processRule(
     })
     .where(eq(autoPurchaseRulesTable.id, rule.id));
 
-  if (!product || product.stock < rule.quantity) return;
+  if (!product || product.stock <= 0) return;
+
+  const purchaseQuantity = Math.min(product.stock, rule.quantity);
 
   await db.update(autoPurchaseRulesTable)
     .set({ lastAttemptAt: now, lastError: null, updatedAt: now })
@@ -96,11 +98,12 @@ async function processRule(
       baseUrl,
       apiKey,
       rule.sourceProductId,
-      rule.quantity,
+      purchaseQuantity,
     );
     await db.update(autoPurchaseRulesTable)
       .set({
         status: "completed",
+        lastPurchasedQuantity: order.quantity || purchaseQuantity,
         lastOrderCode: order.order_code,
         lastPurchasedAmount: order.amount,
         lastError: null,

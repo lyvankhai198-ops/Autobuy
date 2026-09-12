@@ -53,6 +53,7 @@ interface AutoPurchaseRule {
   lastStock: number | null;
   lastCheckedAt: string | null;
   lastAttemptAt: string | null;
+  lastPurchasedQuantity: number | null;
   lastOrderCode: string | null;
   lastPurchasedAmount: number | null;
   lastError: string | null;
@@ -139,16 +140,17 @@ function RuleCard({
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
         <div className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4">
-          <DetailCell label="Số lượng" value={`${rule.quantity} sản phẩm`} mono />
+           <DetailCell label="Giới hạn mua" value={`${rule.quantity} sản phẩm`} mono />
           <DetailCell label="Tồn kho gần nhất" value={rule.lastStock == null ? "Chưa kiểm tra" : `${rule.lastStock} sản phẩm`} mono />
           <DetailCell label="Lần kiểm tra" value={formatDate(rule.lastCheckedAt)} />
           <DetailCell label="Lần thử mua" value={formatDate(rule.lastAttemptAt)} />
         </div>
 
-        {(rule.lastOrderCode || rule.lastPurchasedAmount != null) && (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-3 rounded-lg border border-success/15 bg-success/[0.04] px-3.5 py-3 sm:grid-cols-3">
+        {(rule.lastOrderCode || rule.lastPurchasedQuantity != null || rule.lastPurchasedAmount != null) && (
+          <div className="grid grid-cols-2 gap-x-5 gap-y-3 rounded-lg border border-success/15 bg-success/[0.04] px-3.5 py-3 sm:grid-cols-4">
             <DetailCell label="Mã đơn gần nhất" value={rule.lastOrderCode ?? "—"} mono />
-            <DetailCell label="Đã mua" value={formatMoney(rule.lastPurchasedAmount)} mono />
+            <DetailCell label="Đã mua" value={rule.lastPurchasedQuantity == null ? "—" : `${rule.lastPurchasedQuantity} sản phẩm`} mono />
+            <DetailCell label="Chi phí" value={formatMoney(rule.lastPurchasedAmount)} mono />
             <DetailCell label="Cập nhật" value={formatDate(rule.updatedAt)} />
           </div>
         )}
@@ -334,7 +336,7 @@ export default function AutoPurchase() {
         <Card className="border-primary/25 shadow-card" data-testid="card-create-rule">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-base"><Plus className="h-4 w-4 text-primary" />Tạo quy tắc mua một lần</CardTitle>
-            <CardDescription>Chọn đúng sản phẩm nguồn. Quy tắc sẽ bắt đầu ở trạng thái đang chạy.</CardDescription>
+            <CardDescription>Chọn đúng sản phẩm nguồn. Nếu tồn kho thấp hơn giới hạn, hệ thống sẽ mua toàn bộ số còn lại.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-[1fr_1.5fr_150px]">
@@ -351,7 +353,7 @@ export default function AutoPurchase() {
                 {sourceQuery.data && !sourceQuery.data.online && <p className="flex items-center gap-1 text-[11px] text-destructive"><WifiOff className="h-3 w-3" />Nguồn hàng đang offline</p>}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="auto-purchase-quantity">Số lượng</Label>
+                 <Label htmlFor="auto-purchase-quantity">Tối đa mỗi lần mua</Label>
                 <Input id="auto-purchase-quantity" type="number" min={1} step={1} value={quantity} onChange={(event) => setQuantity(event.target.value)} data-testid="input-rule-quantity" />
               </div>
             </div>

@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS "auto_purchase_rules" (
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 
+ALTER TABLE "auto_purchase_rules"
+  ADD COLUMN IF NOT EXISTS "last_purchased_quantity" integer;
+
 DO $$
 DECLARE
   app_owner name;
