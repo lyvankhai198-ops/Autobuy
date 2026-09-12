@@ -7,6 +7,7 @@ import mappingsRouter from "./mappings";
 import sourceRouter from "./source";
 import actionsRouter from "./actions";
 import marketWatchesRouter from "./market-watches";
+import autoPurchaseRouter from "./auto-purchase";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(mappingsRouter);
 router.use(sourceRouter);
 router.use(actionsRouter);
 router.use(marketWatchesRouter);
+router.use(autoPurchaseRouter);
 
 export default router;

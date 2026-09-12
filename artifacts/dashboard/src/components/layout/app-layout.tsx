@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, ShoppingCart, Settings, ArrowLeftRight,
-  Server, Zap, Store, MoreHorizontal, Bell, X,
+  Server, Zap, Store, MoreHorizontal, Bell, X, PackageCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type ReactNode, useState } from "react";
@@ -15,6 +15,7 @@ const mainNav = [
 const moreNav = [
   { href: "/mappings", label: "Ánh Xạ Sản Phẩm", icon: ArrowLeftRight },
   { href: "/source-api", label: "API Nguồn Hàng", icon: Server },
+  { href: "/auto-purchase", label: "Mua tự động", icon: PackageCheck },
   { href: "/config", label: "Cài Đặt", icon: Settings },
 ];
 
@@ -28,7 +29,10 @@ const sidebarGroups = [
   },
   {
     label: "Tự Động Hóa",
-    items: [{ href: "/market", label: "Chợ Tự Động", icon: Store }],
+    items: [
+      { href: "/market", label: "Chợ Tự Động", icon: Store },
+      { href: "/auto-purchase", label: "Mua tự động", icon: PackageCheck },
+    ],
   },
   {
     label: "Cấu Hình",

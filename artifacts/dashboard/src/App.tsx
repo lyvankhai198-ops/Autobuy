@@ -11,6 +11,7 @@ import Config from '@/pages/config';
 import Mappings from '@/pages/mappings';
 import SourceApi from '@/pages/source-api';
 import Market from '@/pages/market';
+import AutoPurchase from '@/pages/auto-purchase';
 import { AppLayout } from '@/components/layout/app-layout';
 
 import {
@@ -48,6 +49,7 @@ function Router() {
           <Route path="/mappings" component={Mappings} />
           <Route path="/source-api" component={SourceApi} />
           <Route path="/market" component={Market} />
+          <Route path="/auto-purchase" component={AutoPurchase} />
           <Route component={NotFound} />
         </Switch>
       </RoutedErrorBoundary>

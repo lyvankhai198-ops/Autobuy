@@ -48,6 +48,19 @@ export async function fetchProducts(baseUrl: string, apiKey: string): Promise<Su
   return cachedProducts ?? [];
 }
 
+/** Fetch a fresh product list for automation; never uses the five-minute UI cache. */
+export async function fetchProductsFresh(baseUrl: string, apiKey: string): Promise<SupplierProduct[]> {
+  const cleanUrl = baseUrl.replace(/\/+$/, "");
+  const res = await fetch(`${cleanUrl}/api/products`, {
+    headers: { "X-API-Key": apiKey },
+  });
+  const data = await res.json() as { success: boolean; products?: SupplierProduct[]; error?: string; message?: string };
+  if (!res.ok || !data.success || !Array.isArray(data.products)) {
+    throw new Error(data.error ?? data.message ?? `Source API returned HTTP ${res.status}`);
+  }
+  return data.products;
+}
+
 /** Fetch current balance from the source API */
 export async function getBalance(baseUrl: string, apiKey: string): Promise<number> {
   const res = await fetch(`${baseUrl}/api/balance`, {
@@ -154,7 +167,12 @@ export async function buyProduct(
 
   const data = await res.json() as { success: boolean; order?: BuyResult; error?: string; message?: string };
 
-  logger.info({ raw: JSON.stringify(data).slice(0, 500) }, "Supplier API buy raw response");
+  logger.info({
+    success: data.success,
+    orderCode: data.order?.order_code,
+    productName: data.order?.product_name,
+    quantity: data.order?.quantity,
+  }, "Supplier API buy completed");
 
   if (!res.ok || !data.success) {
     const errMsg = data.error ?? data.message ?? `HTTP ${res.status}`;

@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startPoller } from "./lib/poller";
 import { startMarketPoller } from "./lib/market-poller";
+import { startAutoPurchasePoller } from "./lib/auto-purchase-poller";
 import { CanbosoClient, setDefaultCanbosoCredentials } from "./lib/canboso";
 import { getConfig } from "./lib/config";
 
@@ -64,4 +65,5 @@ app.listen(port, (err) => {
   }
 
   startMarketPoller().catch((err) => logger.error({ err }, "Failed to start market poller"));
+  startAutoPurchasePoller().catch((err) => logger.error({ err }, "Failed to start auto-purchase poller"));
 });
