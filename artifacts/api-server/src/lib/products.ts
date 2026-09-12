@@ -26,6 +26,94 @@ let cachedProducts: SupplierProduct[] | null = null;
 let lastFetchAt = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Some supplier deployments can append a second JSON object to the response
+ * body. Parse that stream without logging the body, which may contain account
+ * credentials, and prefer the object carrying the actual order.
+ */
+function parseJsonSequence(raw: string): unknown[] {
+  const values: unknown[] = [];
+  let offset = 0;
+
+  while (offset < raw.length) {
+    while (offset < raw.length && /\s/.test(raw[offset])) offset++;
+    if (offset >= raw.length) break;
+
+    const start = offset;
+    const first = raw[offset];
+    let end = -1;
+
+    if (first === "{" || first === "[") {
+      const opening = first;
+      const closing = first === "{" ? "}" : "]";
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+
+      for (let index = offset; index < raw.length; index++) {
+        const char = raw[index];
+        if (inString) {
+          if (escaped) escaped = false;
+          else if (char === "\\") escaped = true;
+          else if (char === '"') inString = false;
+          continue;
+        }
+        if (char === '"') {
+          inString = true;
+        } else if (char === opening) {
+          depth++;
+        } else if (char === closing) {
+          depth--;
+          if (depth === 0) {
+            end = index + 1;
+            break;
+          }
+        }
+      }
+    } else {
+      end = raw.slice(offset).search(/\s/);
+      end = end === -1 ? raw.length : offset + end;
+    }
+
+    if (end <= start) return [];
+
+    try {
+      values.push(JSON.parse(raw.slice(start, end)));
+    } catch {
+      return [];
+    }
+    offset = end;
+  }
+
+  return values;
+}
+
+async function readSupplierJson<T>(res: Response): Promise<T> {
+  const raw = (await res.text()).replace(/^\uFEFF/, "").trim();
+  try {
+    return JSON.parse(raw) as T;
+  } catch (parseError) {
+    const values = parseJsonSequence(raw);
+    if (values.length > 1) {
+      const records = values.filter(isJsonRecord);
+      const withOrder = records.find((record) => "order" in record);
+      const meaningful = [...records].reverse().find((record) =>
+        "success" in record || "error" in record || "message" in record,
+      );
+      if (withOrder ?? meaningful) {
+        return (withOrder ?? meaningful) as T;
+      }
+    }
+
+    const reason = parseError instanceof Error ? parseError.message : "invalid JSON";
+    throw new Error(`Supplier API returned invalid JSON (HTTP ${res.status}; ${reason})`);
+  }
+}
+
 export async function fetchProducts(baseUrl: string, apiKey: string): Promise<SupplierProduct[]> {
   const now = Date.now();
   if (cachedProducts && now - lastFetchAt < CACHE_TTL_MS) return cachedProducts;
@@ -165,7 +253,12 @@ export async function buyProduct(
     body: JSON.stringify({ product_id: productId, quantity }),
   });
 
-  const data = await res.json() as { success: boolean; order?: BuyResult; error?: string; message?: string };
+  const data = await readSupplierJson<{
+    success: boolean;
+    order?: BuyResult;
+    error?: string;
+    message?: string;
+  }>(res);
 
   logger.info({
     success: data.success,
