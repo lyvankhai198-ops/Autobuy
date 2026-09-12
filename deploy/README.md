@@ -30,6 +30,7 @@ ssh root@103.180.138.203
 # 3. Trên VPS:
 cd /root/autoorder
 git pull origin main
+sudo sh -c 'cat lib/db/drizzle/0007_auto_purchase_rules.sql | sudo -u postgres psql -d autoorder -v ON_ERROR_STOP=1'
 pnpm install --frozen-lockfile
 pnpm --filter @workspace/api-server build
 BASE_PATH=/autoorder/ pnpm --filter @workspace/dashboard build

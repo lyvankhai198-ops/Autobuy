@@ -36,28 +36,32 @@ echo ">>> Bước 1: Git pull trên VPS..."
 eval "$SSH" "cd $VPS_DIR && git pull origin main"
 
 echo ""
-echo ">>> Bước 2: Cài dependencies..."
+echo ">>> Bước 2: Áp dụng migration database additive..."
+eval "$SSH" "cd $VPS_DIR && sudo sh -c 'cat lib/db/drizzle/0007_auto_purchase_rules.sql | sudo -u postgres psql -d autoorder -v ON_ERROR_STOP=1'"
+
+echo ""
+echo ">>> Bước 3: Cài dependencies..."
 eval "$SSH" "cd $VPS_DIR && pnpm install --frozen-lockfile"
 
 echo ""
-echo ">>> Bước 3: Build API server..."
+echo ">>> Bước 4: Build API server..."
 eval "$SSH" "cd $VPS_DIR && pnpm --filter @workspace/api-server build"
 
 echo ""
-echo ">>> Bước 4: Build Dashboard..."
+echo ">>> Bước 5: Build Dashboard..."
 eval "$SSH" "cd $VPS_DIR && BASE_PATH=/autoorder/ pnpm --filter @workspace/dashboard build"
 
 echo ""
-echo ">>> Bước 5: Copy dashboard lên /var/www/..."
+echo ">>> Bước 6: Copy dashboard lên /var/www/..."
 eval "$SSH" "rm -rf $DASHBOARD_PUBLIC/* && cp -r $VPS_DIR/artifacts/dashboard/dist/public/. $DASHBOARD_PUBLIC/"
 
 echo ""
-echo ">>> Bước 6: Restart API service..."
+echo ">>> Bước 7: Restart API service..."
 eval "$SSH" "systemctl restart $SYSTEMD_SERVICE"
 sleep 3
 
 echo ""
-echo ">>> Bước 7: Kiểm tra..."
+echo ">>> Bước 8: Kiểm tra..."
 eval "$SSH" "systemctl is-active $SYSTEMD_SERVICE && echo 'SERVICE: OK' || echo 'SERVICE: FAIL'"
 eval "$SSH" "curl -sf http://127.0.0.1/autoorder/api/healthz && echo 'API: OK' || echo 'API: FAIL'"
 eval "$SSH" "curl -sf http://127.0.0.1/autoorder/ | grep -q '<title>' && echo 'DASHBOARD: OK' || echo 'DASHBOARD: FAIL'"
